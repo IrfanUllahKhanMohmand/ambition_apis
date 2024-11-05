@@ -10,14 +10,21 @@ exports.createDriver = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
   try {
-    const { name, email, password } = req.body;
+    console.log(req.files);
+    const profile = req.files?.profile[0]?.location;
+    const nationalIdFront = req.files?.nationalIdFront[0]?.location;
+    const nationalIdBack = req.files?.nationalIdBack[0]?.location;
+    const driverLicenseFront = req.files?.driverLicenseFront[0]?.location;
+    const driverLicenseBack = req.files?.driverLicenseBack[0]?.location;
+
+    const { name, email, password, phone, car, location } = req.body;
 
     let driver = await Driver.findOne({ email });
     if (driver) {
       return res.status(400).json({ error: "Driver already exists" });
     }
 
-    driver = new Driver({ name, email, password });
+    driver = new Driver({ name, email, password, phone, car, location });
     driver.password = await bcrypt.hash(password, 10);
     await driver.save();
 
@@ -25,7 +32,18 @@ exports.createDriver = async (req, res) => {
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
-    res.status(201).json({ token });
+    res.status(201).json({
+      message: "Driver registered successfully",
+      token,
+      driver: {
+        id: driver._id,
+        name: driver.name,
+        email: driver.email,
+        phone: driver.phone,
+        car: driver.car,
+        location: driver.location,
+      },
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
