@@ -1,4 +1,11 @@
 const express = require("express");
+const uploadToFirebase = require("../common/image_uploader");
+
+const multer = require("multer");
+
+const storage = multer.memoryStorage();
+
+const upload = multer({ storage: storage });
 const router = express.Router();
 const {
   createUser,
@@ -11,7 +18,13 @@ const {
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 
-router.post("/", createUser);
+router.post(
+  "/",
+
+  upload.fields([{ name: "profile", maxCount: 1 }]),
+  uploadToFirebase,
+  createUser
+);
 
 router.post("/login", loginUser);
 
@@ -21,7 +34,14 @@ router.get("/me", auth, getCurrentUser);
 
 router.get("/", auth, getAllUsers);
 
-router.put("/:id", auth, updateUser);
+router.put(
+  "/:id",
+  auth,
+  upload.fields([{ name: "profile", maxCount: 1 }]),
+  uploadToFirebase,
+
+  updateUser
+);
 router.delete("/:id", auth, deleteUser);
 
 module.exports = router;

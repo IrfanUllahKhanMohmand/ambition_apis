@@ -1,10 +1,40 @@
 const mongoose = require("mongoose");
+const { move } = require("../routes/userRoutes");
 
 const rideSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   driver: { type: mongoose.Schema.Types.ObjectId, ref: "Driver" },
-  pickupLocation: String,
-  dropoffLocation: String,
+  moveType: {
+    type: String,
+    required: true,
+  },
+  pickupLocation: {
+    type: { type: String, default: "Point" },
+    coordinates: { type: [Number], default: [0, 0] },
+  },
+  dropoffLocation: {
+    type: { type: String, default: "Point" },
+    coordinates: { type: [Number], default: [0, 0] },
+  },
+  distance: { type: Number },
+  fare: { type: Number },
+  items: [{ type: mongoose.Schema.Types.ObjectId, ref: "Item" }],
+  customItems: [
+    {
+      name: String,
+      length: Number,
+      width: Number,
+      height: Number,
+      weight: Number,
+    },
+  ],
+  requirements: {
+    pickupFloor: Number,
+    dropoffFloor: Number,
+    requiredHelpers: Number,
+    peopleTaggingAlong: Number,
+    specialRequirements: String,
+  },
   status: {
     type: String,
     enum: ["pending", "ongoing", "completed", "canceled"],

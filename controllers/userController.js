@@ -1,23 +1,31 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { validationResult } = require("express-validator");
 
 // Register User
 exports.createUser = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone, latitude, longitude } = req.body;
+
+    if (!req.fileUrls?.profile) {
+      return res.status(400).json({ error: "Please upload profile picture" });
+    }
+
+    const profile = req.fileUrls.profile;
 
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ error: "User already exists" });
     }
 
-    user = new User({ name, email, password });
+    user = new User({
+      name,
+      email,
+      password,
+      phone,
+      profile,
+      location: { type: "Point", coordinates: [latitude, longitude] },
+    });
     user.password = await bcrypt.hash(password, 10);
     await user.save();
 
@@ -27,7 +35,14 @@ exports.createUser = async (req, res) => {
     });
     res.status(201).json({
       token,
-      user: { id: user._id, name: user.name, email: user.email },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        profile: user.profile,
+        phone: user.phone,
+        location: user.location,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -36,10 +51,6 @@ exports.createUser = async (req, res) => {
 
 // Login User
 exports.loginUser = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
   try {
     const { email, password } = req.body;
 
@@ -59,6 +70,9 @@ exports.loginUser = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        profile: user.profile,
+        phone: user.phone,
+        location: user.location,
       },
     });
   } catch (error) {
@@ -100,6 +114,18 @@ exports.getAllUsers = async (req, res) => {
 // Update User
 exports.updateUser = async (req, res) => {
   try {
+    if (req.fileUrls?.profile) {
+      req.body.profile = req.fileUrls.profile;
+    }
+    if (req.body.latitude && req.body.longitude) {
+      req.body.location = {
+        type: "Point",
+        coordinates: [req.body.latitude, req.body.longitude],
+      };
+    }
+    if (req.body.password) {
+      req.body.password = await bcrypt.hash(req.body.password, 10);
+    }
     const user = await User.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
     });

@@ -4,7 +4,7 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
-var serviceAccount = require("../config/serviceAccountKey.json");
+const serviceAccount = require("../config/serviceAccountKey.json");
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   storageBucket: "gs://ambition-automation.appspot.com",
@@ -14,81 +14,63 @@ const bucket = getStorage().bucket();
 
 const uploadToFirebase = async (req, res, next) => {
   try {
-    console.log(req.files);
-    const profile = req.files.profile[0];
-    const nationalIdFront = req.files.nationalIdFront[0];
-    const nationalIdBack = req.files.nationalIdBack[0];
-    const driverLicenseFront = req.files.driverLicenseFront[0];
-    const driverLicenseBack = req.files.driverLicenseBack[0];
+    if (!req.files || Object.keys(req.files).length === 0) {
+      return next();
+    }
 
-    const files = [
-      profile,
-      nationalIdFront,
-      nationalIdBack,
-      driverLicenseFront,
-      driverLicenseBack,
-    ];
+    const fileUploadPromises = [];
 
-    files.forEach((file) => {
-      if (!file) {
-        return res.status(400).json({
-          success: false,
-          message: "Please upload all required files",
+    for (const fieldName in req.files) {
+      req.files[fieldName].forEach((file) => {
+        if (!file) {
+          throw new Error("Please upload all required files");
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error("File size should not exceed 5MB");
+        }
+
+        const allowedTypes = ["image/jpeg", "image/png"];
+        if (!allowedTypes.includes(file.mimetype)) {
+          throw new Error("File type not supported");
+        }
+
+        const filename = `${Date.now()}-${file.originalname}`;
+        const fileRef = bucket.file(filename);
+
+        const uploadPromise = new Promise((resolve, reject) => {
+          const blobStream = fileRef.createWriteStream({
+            metadata: {
+              contentType: file.mimetype,
+              metadata: {
+                firebaseStorageDownloadTokens: filename,
+              },
+            },
+          });
+
+          blobStream.on("error", (err) => reject(err));
+
+          blobStream.on("finish", async () => {
+            const fileUrl = `https://firebasestorage.googleapis.com/v0/b/${
+              bucket.name
+            }/o/${encodeURIComponent(filename)}?alt=media&token=${filename}`;
+
+            resolve({ fieldName, url: fileUrl });
+          });
+
+          blobStream.end(file.buffer);
         });
-      }
-    });
 
-    files.forEach((file) => {
-      if (file.size > 5 * 1024 * 1024) {
-        return res.status(400).json({
-          success: false,
-          message: "File size should not exceed 5MB",
-        });
-      }
-    });
-
-    files.forEach((file) => {
-      const allowedTypes = ["image/jpeg", "image/png"];
-      if (!allowedTypes.includes(file.mimetype)) {
-        return res.status(400).json({
-          success: false,
-          message: "File type not supported",
-        });
-      }
-    });
-
-    files.forEach((file) => {
-      const filename = `${Date.now()}-${file.originalname}`;
-      const fileRef = bucket.file(filename);
-
-      const blobStream = fileRef.createWriteStream({
-        metadata: {
-          contentType: file.mimetype,
-          metadata: {
-            firebaseStorageDownloadTokens: filename,
-          },
-        },
+        fileUploadPromises.push(uploadPromise);
       });
+    }
 
-      blobStream.on("error", (err) => {
-        res.status(500).json({
-          success: false,
-          message: err.message,
-        });
-      });
+    const uploadedFiles = await Promise.all(fileUploadPromises);
 
-      blobStream.on("finish", async () => {
-        const fileUrl = `https://firebasestorage.googleapis.com/v0/b/${
-          bucket.name
-        }/o/${encodeURIComponent(filename)}?alt=media&token=${filename}`;
-
-        const fileField = file.fieldname;
-        req[fileField] = fileUrl;
-      });
-
-      blobStream.end(file.buffer);
-    });
-
+    req.fileUrls = uploadedFiles.reduce((acc, { fieldName, url }) => {
+      acc[fieldName] = url;
+      return acc;
+    }, {});
     next();
   } catch (error) {
     res.status(500).json({

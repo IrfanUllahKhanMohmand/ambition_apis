@@ -12,8 +12,15 @@ const router = express.Router();
 const {
   createDriver,
   getDriver,
+  getDrivers,
   updateDriver,
   deleteDriver,
+  updateDriverLocation,
+  updateDriverStatus,
+  updateDriverCar,
+  getDriverCar,
+  getDriverLocation,
+  getDriverStatus,
 } = require("../controllers/driverController");
 const auth = require("../middleware/auth");
 
@@ -41,11 +48,11 @@ router.post(
       body("phone", "Phone number is required").not().isEmpty(),
       body("car", "Car is required").not().isEmpty(),
 
-      body("location", "Location is required").not().isEmpty(),
+      body("latitude", "Latitude is required").not().isEmpty(),
+      body("longitude", "Longitude is required").not().isEmpty(),
     ],
   ],
   (req, res, next) => {
-    console.log(req.body);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -57,22 +64,44 @@ router.post(
 );
 
 // Protected routes for Driver CRUD
-router.get("/:id", auth, getDriver);
-router.put("/:id", auth, updateDriver);
-router.delete("/:id", auth, deleteDriver);
+router.get("/", getDrivers);
+router.get("/:id", getDriver);
+router.put(
+  "/:id",
 
-// Upload image to Firebase
-router.post(
-  "/upload-file",
-  upload.single("file"),
+  upload.fields([
+    { name: "profile", maxCount: 1 },
+    { name: "nationalIdFront", maxCount: 1 },
+    { name: "nationalIdBack", maxCount: 1 },
+    { name: "driverLicenseFront", maxCount: 1 },
+    { name: "driverLicenseBack", maxCount: 1 },
+  ]),
   uploadToFirebase,
-  (req, res) => {
-    res.status(200).json({
-      success: true,
-      message: "File uploaded successfully",
-      fileUrl: req.fileUrl, // Access the file URL from middleware
-    });
-  }
+  updateDriver
 );
+router.delete("/:id", deleteDriver);
+
+// update driver location
+router.put("/location/:id", updateDriverLocation);
+
+// update driver status
+
+router.put("/status/:id", updateDriverStatus);
+
+// update driver car
+
+router.put("/car/:id", updateDriverCar);
+
+// get driver car
+
+router.get("/car/:id", getDriverCar);
+
+// get driver location
+
+router.get("/location/:id", getDriverLocation);
+
+// get driver status
+
+router.get("/status/:id", getDriverStatus);
 
 module.exports = router;
