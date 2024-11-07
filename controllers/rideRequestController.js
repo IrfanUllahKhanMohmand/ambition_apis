@@ -1,8 +1,8 @@
-const Ride = require("../models/Ride");
+const RideRequest = require("../models/RideRequest");
 const Item = require("../models/Item");
 
-// Create Ride
-exports.createRide = async (req, res) => {
+// Create RideRequest
+exports.createRideRequest = async (req, res, io) => {
   try {
     const {
       user,
@@ -22,7 +22,7 @@ exports.createRide = async (req, res) => {
       peopleTaggingAlong,
       specialRequirements,
     } = req.body;
-    const ride = new Ride({
+    const rideRequest = new RideRequest({
       user,
       driver,
       moveType,
@@ -46,37 +46,32 @@ exports.createRide = async (req, res) => {
         specialRequirements,
       },
     });
-    await ride.save();
-    res.status(201).json(ride);
+    await rideRequest.save();
+    io.emit("rideRequest", rideRequest);
+    res.status(201).json(rideRequest);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// Get Ride by ID
-exports.getRide = async (req, res) => {
+// Get RideRequest by ID
+exports.getRideRequest = async (req, res) => {
   try {
-    const ride = await Ride.findById(req.params.id);
-    if (!ride) return res.status(404).json({ error: "Ride not found" });
-
-    // Fetch all items for the current ride
-    ride.items = await Promise.all(
-      ride.items.map(async (itemId) => await Item.findById(itemId))
-    );
-
-    res.json(ride);
+    const rideRequest = await RideRequest.findById(req.params.id);
+    if (!rideRequest)
+      return res.status(404).json({ error: "RideRequest not found" });
+    res.json(rideRequest);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// Get All Rides
-exports.getAllRides = async (req, res) => {
+// Get All RideRequests
+exports.getAllRideRequests = async (req, res) => {
   try {
-    const rides = await Ride.find();
-
-    const ridesWithItems = await Promise.all(
-      rides.map(async (ride) => {
+    const rideRequests = await RideRequest.find();
+    const rideRequestsWithItems = await Promise.all(
+      rideRequests.map(async (ride) => {
         // Fetch all items for the current ride in parallel
         ride.items = await Promise.all(
           ride.items.map(async (itemId) => await Item.findById(itemId))
@@ -85,14 +80,14 @@ exports.getAllRides = async (req, res) => {
       })
     );
 
-    res.json(ridesWithItems);
+    res.json(rideRequestsWithItems);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// Update Ride
-exports.updateRide = async (req, res) => {
+// Update RideRequest
+exports.updateRideRequest = async (req, res) => {
   try {
     const {
       user,
@@ -156,7 +151,7 @@ exports.updateRide = async (req, res) => {
     if (driver) req.body.driver = driver;
     if (moveType) req.body.moveType = moveType;
 
-    const ride = await Ride.findByIdAndUpdate(req.params.id, req.body, {
+    const ride = await RideRequest.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
     });
     if (!ride) return res.status(404).json({ error: "Ride not found" });
@@ -166,13 +161,31 @@ exports.updateRide = async (req, res) => {
   }
 };
 
-// Delete Ride
-exports.deleteRide = async (req, res) => {
+// Delete RideRequest
+exports.deleteRideRequest = async (req, res) => {
   try {
-    const ride = await Ride.findByIdAndDelete(req.params.id);
-    if (!ride) return res.status(404).json({ error: "Ride not found" });
-    res.json({ message: "Ride deleted successfully" });
+    const rideRequest = await RideRequest.findByIdAndDelete(req.params.id);
+    if (!rideRequest)
+      return res.status(404).json({ error: "RideRequest not found" });
+    res.json({ message: "RideRequest deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+//Update driver id in ride request
+exports.updateDriverId = async (req, res) => {
+  try {
+    const { driverId } = req.body;
+    const rideRequest = await RideRequest.findByIdAndUpdate(
+      req.params.id,
+      { driver: driverId },
+      { new: true }
+    );
+    if (!rideRequest)
+      return res.status(404).json({ error: "RideRequest not found" });
+    res.json(rideRequest);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 };

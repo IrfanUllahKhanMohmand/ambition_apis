@@ -1,4 +1,5 @@
 const Driver = require("../models/Driver");
+const CarCategory = require("../models/CarCategory");
 const bcrypt = require("bcryptjs");
 const { validationResult } = require("express-validator");
 const jwt = require("jsonwebtoken");
@@ -83,7 +84,22 @@ exports.createDriver = async (req, res) => {
 exports.getDrivers = async (req, res) => {
   try {
     const drivers = await Driver.find();
-    res.json(drivers);
+    // Check if there are no drivers
+    if (drivers.length === 0) {
+      return res.status(404).json({ error: "No drivers found" });
+    }
+    //Fetch all car categories with each driver Car
+    const driversWithCarCategory = await Promise.all(
+      drivers.map(async (driver) => {
+        const carCategory = await CarCategory.findById(driver.car.category);
+        return {
+          ...driver._doc,
+          car: { ...driver._doc.car, category: carCategory },
+        };
+      })
+    );
+
+    res.json(driversWithCarCategory);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -94,7 +110,14 @@ exports.getDriver = async (req, res) => {
   try {
     const driver = await Driver.findById(req.params.id);
     if (!driver) return res.status(404).json({ error: "Driver not found" });
-    res.json(driver);
+
+    // Fetch the car category for the current driver
+    const carCategory = await CarCategory.findById(driver.car.category);
+
+    res.json({
+      ...driver._doc,
+      car: { ...driver._doc.car, category: carCategory },
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -228,7 +251,12 @@ exports.getDriverCar = async (req, res) => {
   try {
     const driver = await Driver.findById(req.params.id);
     if (!driver) return res.status(404).json({ error: "Driver not found" });
-    res.json(driver.car);
+    // Fetch the car category for the current driver
+    const carCategory = await CarCategory.findById(driver.car.category);
+
+    res.json({
+      car: { ...driver.car, category: carCategory },
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

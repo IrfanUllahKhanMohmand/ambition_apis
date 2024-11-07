@@ -1,8 +1,12 @@
 const mongoose = require("mongoose");
 
-const rideSchema = new mongoose.Schema({
+const rideRequestSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  driver: { type: mongoose.Schema.Types.ObjectId, ref: "Driver" },
+  driver: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Driver",
+    default: null,
+  },
   moveType: {
     type: String,
     required: true,
@@ -15,8 +19,8 @@ const rideSchema = new mongoose.Schema({
     type: { type: String, default: "Point" },
     coordinates: { type: [Number], default: [0, 0] },
   },
-  distance: { type: Number },
-  fare: { type: Number },
+  distance: { type: Number, default: 0 },
+  fare: { type: Number, default: 0 },
   items: [{ type: mongoose.Schema.Types.ObjectId, ref: "Item" }],
   customItems: [
     {
@@ -43,4 +47,4 @@ const rideSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model("Ride", rideSchema);
+module.exports = mongoose.model("RideRequest", rideRequestSchema);
