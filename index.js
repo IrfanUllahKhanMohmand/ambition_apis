@@ -7,9 +7,10 @@ const { Server } = require("socket.io");
 const userRoutes = require("./routes/userRoutes");
 const driverRoutes = require("./routes//driverRoutes");
 const rideRoutes = require("./routes/rideRoutes");
-const carCategoryRoutes = require("./routes/carCategoryRoutes");
+const vehicleCategoryRoutes = require("./routes/vehicleCategoryRoutes");
 const itemRoutes = require("./routes/itemRoutes");
 const rideRequestRoutes = require("./routes/rideRequestRoutes");
+const vehicleRoutes = require("./routes/vehicleRoutes");
 
 const app = express();
 
@@ -44,9 +45,10 @@ connectDB();
 app.use("/api/users", userRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/rides", rideRoutes);
-app.use("/api/car-categories", carCategoryRoutes);
+app.use("/api/vehicle-categories", vehicleCategoryRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/ride-requests", rideRequestRoutes(io));
+app.use("/api/vehicles", vehicleRoutes);
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));

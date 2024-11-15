@@ -49,6 +49,20 @@ exports.createUser = async (req, res) => {
   }
 };
 
+// check if email exists middleware
+exports.checkEmail = async (req, res, next) => {
+  try {
+    console.log(req.body);
+    const user = await User.findOne({ email: req.body.email });
+    if (user) {
+      return res.status(400).json({ error: "User already exists" });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Login User
 exports.loginUser = async (req, res) => {
   try {
@@ -56,7 +70,6 @@ exports.loginUser = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: "User not found" });
-
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
@@ -67,12 +80,8 @@ exports.loginUser = async (req, res) => {
     res.json({
       token,
       user: {
-        id: user._id,
-        name: user.name,
         email: user.email,
-        profile: user.profile,
-        phone: user.phone,
-        location: user.location,
+        password: password,
       },
     });
   } catch (error) {

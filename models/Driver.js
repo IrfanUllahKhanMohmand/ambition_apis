@@ -12,7 +12,10 @@ const driverSchema = new mongoose.Schema(
     driverLicenseBack: String,
     profile: String,
     car: {
-      category: { type: mongoose.Schema.Types.ObjectId, ref: "CarCategory" },
+      category: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "VehicleCategory",
+      },
       make: String,
       model: String,
       year: Number,

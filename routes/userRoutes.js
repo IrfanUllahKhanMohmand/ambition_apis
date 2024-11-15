@@ -15,13 +15,14 @@ const {
   updateUser,
   deleteUser,
   loginUser,
+  checkEmail,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 
 router.post(
   "/",
-
   upload.fields([{ name: "profile", maxCount: 1 }]),
+  checkEmail,
   uploadToFirebase,
   createUser
 );

@@ -21,6 +21,8 @@ const {
   getDriverCar,
   getDriverLocation,
   getDriverStatus,
+  checkEmail,
+  loginDriver,
 } = require("../controllers/driverController");
 const auth = require("../middleware/auth");
 
@@ -46,7 +48,6 @@ router.post(
         min: 6,
       }),
       body("phone", "Phone number is required").not().isEmpty(),
-      body("car", "Car is required").not().isEmpty(),
 
       body("latitude", "Latitude is required").not().isEmpty(),
       body("longitude", "Longitude is required").not().isEmpty(),
@@ -59,9 +60,13 @@ router.post(
     }
     next();
   },
+  checkEmail,
   uploadToFirebase,
   createDriver
 );
+
+// Driver login
+router.post("/login", loginDriver);
 
 // Protected routes for Driver CRUD
 router.get("/", getDrivers);

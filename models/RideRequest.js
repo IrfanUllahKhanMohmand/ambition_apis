@@ -2,10 +2,9 @@ const mongoose = require("mongoose");
 
 const rideRequestSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  driver: {
+  vehicleCategory: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Driver",
-    default: null,
+    ref: "VehicleCategory",
   },
   moveType: {
     type: String,
@@ -21,7 +20,12 @@ const rideRequestSchema = new mongoose.Schema({
   },
   distance: { type: Number, default: 0 },
   fare: { type: Number, default: 0 },
-  items: [{ type: mongoose.Schema.Types.ObjectId, ref: "Item" }],
+  items: [
+    {
+      id: { type: mongoose.Schema.Types.ObjectId, ref: "Item" },
+      quantity: Number,
+    },
+  ],
   customItems: [
     {
       name: String,

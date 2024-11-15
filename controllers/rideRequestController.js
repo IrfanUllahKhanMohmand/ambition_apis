@@ -1,19 +1,23 @@
 const RideRequest = require("../models/RideRequest");
 const Item = require("../models/Item");
+const {
+  getDistance,
+  getEstimatedFare,
+  getEstimatedTime,
+} = require("../common/utils");
+const VehicleCategory = require("../models/VehicleCategory");
 
 // Create RideRequest
 exports.createRideRequest = async (req, res, io) => {
   try {
     const {
       user,
-      driver,
+      vehicleCategory,
       moveType,
       pickupLocationLat,
       pickupLocationLng,
       dropoffLocationLat,
       dropoffLocationLng,
-      distance,
-      fare,
       items,
       customItems,
       pickupFloor,
@@ -22,9 +26,19 @@ exports.createRideRequest = async (req, res, io) => {
       peopleTaggingAlong,
       specialRequirements,
     } = req.body;
+    const distanceText = await getDistance(
+      pickupLocationLat,
+      pickupLocationLng,
+      dropoffLocationLat,
+      dropoffLocationLng
+    );
+    const distance = parseFloat(distanceText.split(" ")[0]);
+
+    //Find car category by looking at the items, customItems and peopleTaggingAlong
+    const fare = await getEstimatedFare(distanceText, vehicleCategory);
     const rideRequest = new RideRequest({
       user,
-      driver,
+      vehicleCategory,
       moveType,
       pickupLocation: {
         type: "Point",
@@ -46,6 +60,7 @@ exports.createRideRequest = async (req, res, io) => {
         specialRequirements,
       },
     });
+
     await rideRequest.save();
     io.emit("rideRequest", rideRequest);
     res.status(201).json(rideRequest);
@@ -69,18 +84,28 @@ exports.getRideRequest = async (req, res) => {
 // Get All RideRequests
 exports.getAllRideRequests = async (req, res) => {
   try {
-    const rideRequests = await RideRequest.find();
-    const rideRequestsWithItems = await Promise.all(
+    // Fetch all ride requests as plain objects
+    const rideRequests = await RideRequest.find().lean();
+
+    const processedRideRequests = await Promise.all(
       rideRequests.map(async (ride) => {
-        // Fetch all items for the current ride in parallel
-        ride.items = await Promise.all(
-          ride.items.map(async (itemId) => await Item.findById(itemId))
+        const itemsWithDetails = await Promise.all(
+          ride.items.map(async (itm) => {
+            const item = await Item.findById(itm.id);
+            return {
+              item: item,
+              quantity: itm.quantity,
+            };
+          })
         );
+
+        // Assign the detailed items back to the ride
+        ride.items = itemsWithDetails;
         return ride;
       })
     );
 
-    res.json(rideRequestsWithItems);
+    res.json(processedRideRequests);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -185,6 +210,56 @@ exports.updateDriverId = async (req, res) => {
     if (!rideRequest)
       return res.status(404).json({ error: "RideRequest not found" });
     res.json(rideRequest);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Get estimated fare for a trip
+exports.getEstimatedFare = async (req, res) => {
+  try {
+    const {
+      originLat,
+      originLong,
+      destinationLat,
+      destinationLong,
+      vehicleCategoryId,
+    } = req.body;
+    const distance = await getDistance(
+      originLat,
+      originLong,
+      destinationLat,
+      destinationLong
+    );
+    const fare = await getEstimatedFare(distance, vehicleCategoryId);
+    res.json({ distance, fare });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Get estimated time for a trip
+exports.getEstimatedTime = async (req, res) => {
+  try {
+    const { origin, destination } = req.body;
+    const time = await getEstimatedTime(origin, destination);
+    res.json({ time });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+//Get distance between two locations
+exports.getDistance = async (req, res) => {
+  try {
+    const { originLat, originLong, destinationLat, destinationLong } = req.body;
+    const distance = await getDistance(
+      originLat,
+      originLong,
+      destinationLat,
+      destinationLong
+    );
+    res.send({ distance });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

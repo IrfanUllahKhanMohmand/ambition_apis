@@ -1,5 +1,5 @@
 const Driver = require("../models/Driver");
-const CarCategory = require("../models/CarCategory");
+const VehicleCategory = require("../models/VehicleCategory");
 const bcrypt = require("bcryptjs");
 const { validationResult } = require("express-validator");
 const jwt = require("jsonwebtoken");
@@ -19,7 +19,7 @@ exports.createDriver = async (req, res) => {
       carYear,
       carPlate,
       carColor,
-      carCategory,
+      vehicleCategory,
     } = req.body;
     if (!req.fileUrls) {
       return res.status(400).json({ error: "Please upload all files" });
@@ -41,7 +41,7 @@ exports.createDriver = async (req, res) => {
         year: carYear,
         plate: carPlate,
         color: carColor,
-        category: carCategory,
+        category: vehicleCategory,
       },
       location: { type: "Point", coordinates: [latitude, longitude] },
       profile: req.fileUrls.profile,
@@ -79,6 +79,19 @@ exports.createDriver = async (req, res) => {
   }
 };
 
+// Check if email exists middleware
+exports.checkEmail = async (req, res, next) => {
+  try {
+    const driver = await Driver.findOne({ email: req.body.email });
+    if (driver) {
+      return res.status(400).json({ error: "Driver already exists" });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Get all Drivers
 
 exports.getDrivers = async (req, res) => {
@@ -91,10 +104,12 @@ exports.getDrivers = async (req, res) => {
     //Fetch all car categories with each driver Car
     const driversWithCarCategory = await Promise.all(
       drivers.map(async (driver) => {
-        const carCategory = await CarCategory.findById(driver.car.category);
+        const vehicleCategory = await VehicleCategory.findById(
+          driver.car.category
+        );
         return {
           ...driver._doc,
-          car: { ...driver._doc.car, category: carCategory },
+          car: { ...driver._doc.car, category: vehicleCategory },
         };
       })
     );
@@ -112,7 +127,7 @@ exports.getDriver = async (req, res) => {
     if (!driver) return res.status(404).json({ error: "Driver not found" });
 
     // Fetch the car category for the current driver
-    const carCategory = await CarCategory.findById(driver.car.category);
+    const carCategory = await VehicleCategory.findById(driver.car.category);
 
     res.json({
       ...driver._doc,
@@ -123,6 +138,32 @@ exports.getDriver = async (req, res) => {
   }
 };
 
+// login Driver
+exports.loginDriver = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const driver = await Driver.findOne({ email });
+    if (!driver) return res.status(400).json({ error: "Driver not found" });
+
+    const isMatch = await bcrypt.compare(password, driver.password);
+    if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
+
+    const payload = { driverId: driver._id };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+    res.json({
+      token,
+      driver: {
+        email: driver.email,
+        password: password,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 // Update Driver
 exports.updateDriver = async (req, res) => {
   try {
@@ -252,12 +293,33 @@ exports.getDriverCar = async (req, res) => {
     const driver = await Driver.findById(req.params.id);
     if (!driver) return res.status(404).json({ error: "Driver not found" });
     // Fetch the car category for the current driver
-    const carCategory = await CarCategory.findById(driver.car.category);
+    const carCategory = await VehicleCategory.findById(driver.car.category);
 
     res.json({
       car: { ...driver.car, category: carCategory },
     });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+//Get the nearest driver
+exports.getNearestDriver = async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const drivers = await Driver.find({
+      location: {
+        $near: {
+          $geometry: { type: "Point", coordinates: [latitude, longitude] },
+          $maxDistance: 10000,
+        },
+      },
+    });
+    if (drivers.length === 0) {
+      return res.status(404).json({ error: "No drivers found" });
+    }
+    res.json(drivers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
