@@ -33,7 +33,7 @@ router.get("/byId/:id", auth, getUser);
 
 router.get("/me", auth, getCurrentUser);
 
-router.get("/", auth, getAllUsers);
+router.get("/", getAllUsers);
 
 router.put(
   "/:id",

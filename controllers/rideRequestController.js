@@ -1,5 +1,6 @@
 const RideRequest = require("../models/RideRequest");
 const Item = require("../models/Item");
+const Driver = require("../models/Driver");
 const {
   getDistance,
   getEstimatedFare,
@@ -18,6 +19,8 @@ exports.createRideRequest = async (req, res, io) => {
       pickupLocationLng,
       dropoffLocationLat,
       dropoffLocationLng,
+      distance,
+      fare,
       items,
       customItems,
       pickupFloor,
@@ -32,10 +35,6 @@ exports.createRideRequest = async (req, res, io) => {
       dropoffLocationLat,
       dropoffLocationLng
     );
-    const distance = parseFloat(distanceText.split(" ")[0]);
-
-    //Find car category by looking at the items, customItems and peopleTaggingAlong
-    const fare = await getEstimatedFare(distanceText, vehicleCategory);
     const rideRequest = new RideRequest({
       user,
       vehicleCategory,
@@ -62,7 +61,15 @@ exports.createRideRequest = async (req, res, io) => {
     });
 
     await rideRequest.save();
-    io.emit("rideRequest", rideRequest);
+    const drivers = await Driver.find({
+      "car.category": vehicleCategory,
+      status: "online",
+    });
+    if (drivers.length > 0) {
+      drivers.forEach((driver) => {
+        io.emit(driver._id, rideRequest);
+      });
+    }
     res.status(201).json(rideRequest);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -73,6 +80,58 @@ exports.createRideRequest = async (req, res, io) => {
 exports.getRideRequest = async (req, res) => {
   try {
     const rideRequest = await RideRequest.findById(req.params.id);
+    if (!rideRequest)
+      return res.status(404).json({ error: "RideRequest not found" });
+    res.json(rideRequest);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//Get the last RideRequest by User ID which has status of pending or ongoing
+exports.getRideRequestByUser = async (req, res) => {
+  try {
+    // Fetch the RideRequest
+    const rideRequest = await RideRequest.findOne({
+      user: req.params.id,
+      status: { $in: ["pending", "ongoing"] },
+    });
+
+    if (!rideRequest) {
+      return res.status(404).json({ error: "RideRequest not found" });
+    }
+
+    // Convert rideRequest to a plain object
+    const rideRequestObj = rideRequest.toObject();
+
+    // Update the items array with the desired structure
+    rideRequestObj.items = await Promise.all(
+      rideRequestObj.items.map(async (itm) => {
+        const item = await Item.findById(itm.id);
+        if (!item) {
+          throw new Error(`Item with ID ${itm.id} not found`);
+        }
+        return {
+          ...item.toObject(), // Include only item fields
+          quantity: itm.quantity, // Add quantity from itm
+        };
+      })
+    );
+
+    // Send the updated rideRequest object
+    res.json(rideRequestObj);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get RideRequest by Driver ID
+exports.getRideRequestByDriver = async (req, res) => {
+  try {
+    const rideRequest = await RideRequest.findOne({
+      driver: req.params.id,
+      status: { $in: ["pending", "ongoing"] },
+    });
     if (!rideRequest)
       return res.status(404).json({ error: "RideRequest not found" });
     res.json(rideRequest);

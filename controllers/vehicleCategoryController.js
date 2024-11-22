@@ -1,5 +1,10 @@
 const VehicleCategory = require("../models/VehicleCategory");
 const Item = require("../models/Item");
+const {
+  getDistance,
+  getEstimatedFare,
+  getEstimatedTime,
+} = require("../common/utils");
 
 // Create a Vehicle Category
 exports.createVehicleCategory = async (req, res) => {
@@ -72,9 +77,32 @@ exports.deleteVehicleCategory = async (req, res) => {
 
 exports.getVehicleCategoriesByItems = async (req, res) => {
   try {
-    const { items, customItems, peopleTagging } = req.body;
+    const {
+      items = [],
+      customItems = [],
+      peopleTagging = 0,
+      originLat,
+      originLong,
+      destinationLat,
+      destinationLong,
+    } = req.body;
+
+    if (!originLat || !originLong || !destinationLat || !destinationLong) {
+      return res
+        .status(400)
+        .json({ error: "Missing required location coordinates." });
+    }
+
     let totalVolume = 0;
     let totalWeight = 0;
+    const itemCounts = {
+      "Extra Small": 0,
+      Small: 0,
+      Medium: 0,
+      "Medium +": 0,
+      Large: 0,
+      "Extra Large": 0,
+    };
 
     const vanCategories = {
       "Ambition Lite": {
@@ -159,24 +187,22 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
       },
     };
 
-    let itemCounts = {
-      "Extra Small": 0,
-      Small: 0,
-      Medium: 0,
-      "Medium +": 0,
-      Large: 0,
-      "Extra Large": 0,
-    };
+    const distance = await getDistance(
+      originLat,
+      originLong,
+      destinationLat,
+      destinationLong
+    );
 
-    // Calculate the total volume and weight of the items with quantity
-    if (items && items.length > 0) {
+    // Process regular items
+    if (items.length > 0) {
       const fetchedItems = await Promise.all(
         items.map((itm) => Item.findById(itm.id))
       );
 
       fetchedItems.forEach((item, index) => {
         if (item) {
-          const quantity = items[index].quantity || 1; // Default to 1 if quantity is not specified
+          const quantity = items[index].quantity || 1;
           totalVolume += item.height * item.width * item.length * quantity;
           totalWeight += item.weight * quantity;
           itemCounts[item.itemType] += quantity;
@@ -184,45 +210,61 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
       });
     }
 
-    // Calculate the total volume and weight of the custom items
-    if (customItems && customItems.length > 0) {
-      customItems.forEach((itm) => {
-        totalVolume += itm.height * itm.width * itm.length;
-        totalWeight += itm.weight;
-      });
-    }
+    // Process custom items
+    customItems.forEach((itm) => {
+      totalVolume += itm.height * itm.width * itm.length;
+      totalWeight += itm.weight;
+    });
 
-    // Fetch all vehicle categories that can accommodate the items
+    // Fetch all suitable vehicle categories
     const vehicleCategories = await VehicleCategory.find({
       loadVolume: { $gte: totalVolume },
       payloadCapacity: { $gte: totalWeight },
-      passengerCapacity: { $gte: peopleTagging ?? 0 },
+      passengerCapacity: { $gte: peopleTagging },
     });
 
-    // Filter vehicles based on the vanCategories limits
+    // Filter vehicles based on van category limits
     const filteredVehicles = vehicleCategories.filter((vehicle) => {
       const vanCategoryLimits = vanCategories[vehicle.name];
-
       if (vanCategoryLimits) {
-        // Check if the vehicle can accommodate all item counts within its category limits
-        return Object.keys(itemCounts).every((itemType) => {
-          return itemCounts[itemType] <= (vanCategoryLimits[itemType] || 0);
-        });
+        return Object.keys(itemCounts).every(
+          (itemType) =>
+            itemCounts[itemType] <= (vanCategoryLimits[itemType] || 0)
+        );
       }
-
-      return false; // Exclude vehicles not found in vanCategories
+      return false;
     });
+
+    // Calculate estimated fare for filtered vehicles using Promise.all
+    const vehiclesWithFare = await Promise.all(
+      filteredVehicles.map(async (vehicle) => {
+        try {
+          const plainVehicle = vehicle.toObject(); // Convert to plain object if Mongoose doc
+          plainVehicle.estimatedFare = await getEstimatedFare(
+            distance,
+            vehicle._id
+          );
+          return plainVehicle;
+        } catch (error) {
+          console.error(
+            `Error fetching fare for vehicle ${vehicle._id}:`,
+            error
+          );
+          return { ...vehicle.toObject(), estimatedFare: null }; // Ensure the field exists
+        }
+      })
+    );
 
     res.json({
       requestDetails: {
-        totalVolume: `${totalVolume} m³`,
-        totalWeight: `${totalWeight} kg`,
-        itemCounts: itemCounts,
-        peopleTagging: peopleTagging ?? 0,
+        totalVolume: totalVolume,
+        totalWeight: totalWeight,
+        itemCounts,
+        peopleTagging,
+        distance: parseFloat(distance.split(" ")[0]),
       },
-      //Suggest one vehicle as the suggested vehicle and other vehicles as alternative vehicles
-      suggestedVehicle: filteredVehicles[0],
-      alternativeVehicles: filteredVehicles.slice(1),
+      suggestedVehicle: vehiclesWithFare[0] || null,
+      alternativeVehicles: vehiclesWithFare.slice(1),
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

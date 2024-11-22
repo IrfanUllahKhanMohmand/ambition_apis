@@ -156,6 +156,7 @@ exports.loginDriver = async (req, res) => {
     res.json({
       token,
       driver: {
+        id: driver._id,
         email: driver.email,
         password: password,
       },

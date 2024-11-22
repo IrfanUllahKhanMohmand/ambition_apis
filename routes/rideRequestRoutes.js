@@ -11,18 +11,25 @@ const {
   getDistance,
   getEstimatedFare,
   getEstimatedTime,
+  getRideRequestByUser,
+  getRideRequestByDriver,
 } = require("../controllers/rideRequestController");
 const auth = require("../middleware/auth");
 
 module.exports = (io) => {
-  router.post("/", auth, (req, res) => createRideRequest(req, res, io));
-  router.get("/", auth, (req, res) => getAllRideRequests(req, res));
-  router.get("/:id", auth, (req, res) => getRideRequest(req, res));
-  router.put("/:id", auth, (req, res) => updateRideRequest(req, res));
-  router.delete("/:id", auth, (req, res) => deleteRideRequest(req, res));
-  router.put("/:id/driver", auth, (req, res) => updateDriverId(req, res));
-  router.post("/distance", auth, (req, res) => getDistance(req, res));
-  router.post("/fare", auth, (req, res) => getEstimatedFare(req, res));
-  router.post("/time", auth, (req, res) => getEstimatedTime(req, res));
+  router.post("/", (req, res) => createRideRequest(req, res, io));
+  router.get("/", (req, res) => getAllRideRequests(req, res));
+  router.get("/:id", (req, res) => getRideRequest(req, res));
+  //getRideRequest by user id
+  router.get("/user/:id", (req, res) => getRideRequestByUser(req, res));
+
+  //getRideRequest by driver id
+  router.get("/driver/:id", (req, res) => getRideRequestByDriver(req, res));
+  router.put("/:id", (req, res) => updateRideRequest(req, res));
+  router.delete("/:id", (req, res) => deleteRideRequest(req, res));
+  router.put("/:id/driver", (req, res) => updateDriverId(req, res));
+  router.post("/distance", (req, res) => getDistance(req, res));
+  router.post("/fare", (req, res) => getEstimatedFare(req, res));
+  router.post("/time", (req, res) => getEstimatedTime(req, res));
   return router;
 };

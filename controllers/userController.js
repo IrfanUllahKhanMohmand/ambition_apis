@@ -52,7 +52,6 @@ exports.createUser = async (req, res) => {
 // check if email exists middleware
 exports.checkEmail = async (req, res, next) => {
   try {
-    console.log(req.body);
     const user = await User.findOne({ email: req.body.email });
     if (user) {
       return res.status(400).json({ error: "User already exists" });
@@ -80,6 +79,7 @@ exports.loginUser = async (req, res) => {
     res.json({
       token,
       user: {
+        id: user._id,
         email: user.email,
         password: password,
       },
