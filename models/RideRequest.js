@@ -1,7 +1,18 @@
 const mongoose = require("mongoose");
+const PolyLinePoints = require("./PolyLinePoints");
 
 const rideRequestSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  driverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Driver",
+    default: null,
+  },
+  polylinePoints: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "PolyLinePoints",
+    default: null,
+  },
   vehicleCategory: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "VehicleCategory",

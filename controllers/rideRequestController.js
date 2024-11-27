@@ -1,12 +1,13 @@
 const RideRequest = require("../models/RideRequest");
 const Item = require("../models/Item");
 const Driver = require("../models/Driver");
+const PolyLinePoints = require("../models/PolyLinePoints");
 const {
   getDistance,
   getEstimatedFare,
   getEstimatedTime,
+  getPolyline,
 } = require("../common/utils");
-const VehicleCategory = require("../models/VehicleCategory");
 
 // Create RideRequest
 exports.createRideRequest = async (req, res, io) => {
@@ -35,6 +36,17 @@ exports.createRideRequest = async (req, res, io) => {
       dropoffLocationLat,
       dropoffLocationLng
     );
+    const polylinePoints = await getPolyline(
+      `${pickupLocationLat},${pickupLocationLng}`,
+      `${dropoffLocationLat},${dropoffLocationLng}`
+    );
+
+    const polyLinePoints = new PolyLinePoints({
+      points: polylinePoints,
+    });
+
+    await polyLinePoints.save();
+
     const rideRequest = new RideRequest({
       user,
       vehicleCategory,
@@ -47,6 +59,7 @@ exports.createRideRequest = async (req, res, io) => {
         type: "Point",
         coordinates: [dropoffLocationLat, dropoffLocationLng],
       },
+      polylinePoints: polyLinePoints._id,
       distance,
       fare,
       items,
@@ -82,14 +95,38 @@ exports.getRideRequest = async (req, res) => {
     const rideRequest = await RideRequest.findById(req.params.id);
     if (!rideRequest)
       return res.status(404).json({ error: "RideRequest not found" });
-    res.json(rideRequest);
+
+    // Convert rideRequest to a plain object
+    const rideRequestObj = rideRequest.toObject();
+
+    const polyLinePoints = await PolyLinePoints.findById(
+      rideRequestObj.polylinePoints
+    );
+    rideRequestObj.polylinePoints = polyLinePoints.points;
+
+    // Update the items array with the desired structure
+    rideRequestObj.items = await Promise.all(
+      rideRequestObj.items.map(async (itm) => {
+        const item = await Item.findById(itm.id);
+        if (!item) {
+          throw new Error(`Item with ID ${itm.id} not found`);
+        }
+        return {
+          ...item.toObject(), // Include only item fields
+          quantity: itm.quantity, // Add quantity from itm
+        };
+      })
+    );
+
+    // Send the updated rideRequest object
+    res.json(rideRequestObj);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
 //Get the last RideRequest by User ID which has status of pending or ongoing
-exports.getRideRequestByUser = async (req, res) => {
+exports.getOnGoingRideRequestByUser = async (req, res) => {
   try {
     // Fetch the RideRequest
     const rideRequest = await RideRequest.findOne({
@@ -125,16 +162,49 @@ exports.getRideRequestByUser = async (req, res) => {
   }
 };
 
-// Get RideRequest by Driver ID
-exports.getRideRequestByDriver = async (req, res) => {
+// Get RideRequests by Driver ID by status of pending using car category of driver
+exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
   try {
-    const rideRequest = await RideRequest.findOne({
-      driver: req.params.id,
-      status: { $in: ["pending", "ongoing"] },
+    // Fetch the driver
+    const driver = await Driver.findById(req.params.id);
+    if (!driver) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
+
+    // Fetch the RideRequest
+    const rideRequest = await RideRequest.find({
+      status: { $in: ["pending"] },
+      vehicleCategory: driver.car.category,
     });
-    if (!rideRequest)
+
+    if (!rideRequest) {
       return res.status(404).json({ error: "RideRequest not found" });
-    res.json(rideRequest);
+    }
+
+    // Convert rideRequests to a plain object
+    const rideRequestObj = rideRequest.map((ride) => ride.toObject());
+
+    // Update the items array with the desired structure
+    const processedRideRequests = await Promise.all(
+      rideRequestObj.map(async (ride) => {
+        const itemsWithDetails = await Promise.all(
+          ride.items.map(async (itm) => {
+            const item = await Item.findById(itm.id);
+            return {
+              ...item.toObject(), // Include only item fields
+              quantity: itm.quantity, // Add quantity from itm
+            };
+          })
+        );
+
+        // Assign the detailed items back to the ride
+        ride.items = itemsWithDetails;
+        return ride;
+      })
+    );
+
+    // Send the updated rideRequest object
+    res.json(processedRideRequests);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -263,7 +333,150 @@ exports.updateDriverId = async (req, res) => {
     const { driverId } = req.body;
     const rideRequest = await RideRequest.findByIdAndUpdate(
       req.params.id,
-      { driver: driverId },
+      { driverId, status: "ongoing" },
+      { new: true }
+    );
+    if (!rideRequest)
+      return res.status(404).json({ error: "RideRequest not found" });
+    res.json(rideRequest);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Fetch all ride requests by driver id with status of completed or canceled
+exports.getClosedRideRequestsByDriver = async (req, res) => {
+  try {
+    const rideRequests = await RideRequest.find({
+      driverId: req.params.id,
+      status: { $in: ["completed", "canceled"] },
+    });
+    // Convert rideRequests to a plain object
+    const rideRequestObj = rideRequest.map((ride) => ride.toObject());
+
+    // Update the items array with the desired structure
+    const processedRideRequests = await Promise.all(
+      rideRequestObj.map(async (ride) => {
+        const itemsWithDetails = await Promise.all(
+          ride.items.map(async (itm) => {
+            const item = await Item.findById(itm.id);
+            return {
+              ...item.toObject(), // Include only item fields
+              quantity: itm.quantity, // Add quantity from itm
+            };
+          })
+        );
+
+        // Assign the detailed items back to the ride
+        ride.items = itemsWithDetails;
+        return ride;
+      })
+    );
+
+    // Send the updated rideRequest object
+    res.json(processedRideRequests);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//Fetch all ride requests by user id with status of completed or canceled
+exports.getClosedRideRequestsByUser = async (req, res) => {
+  try {
+    const rideRequests = await RideRequest.find({
+      user: req.params.id,
+      status: { $in: ["completed", "canceled"] },
+    });
+
+    // Convert rideRequests to a plain object
+    const rideRequestObj = rideRequest.map((ride) => ride.toObject());
+
+    // Update the items array with the desired structure
+    const processedRideRequests = await Promise.all(
+      rideRequestObj.map(async (ride) => {
+        const itemsWithDetails = await Promise.all(
+          ride.items.map(async (itm) => {
+            const item = await Item.findById(itm.id);
+            return {
+              ...item.toObject(), // Include only item fields
+              quantity: itm.quantity, // Add quantity from itm
+            };
+          })
+        );
+
+        // Assign the detailed items back to the ride
+        ride.items = itemsWithDetails;
+        return ride;
+      })
+    );
+
+    // Send the updated rideRequest object
+    res.json(processedRideRequests);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//Fetch last ride request by driver id with status of ongoing
+exports.getOnGoingRideRequestByDriver = async (req, res) => {
+  try {
+    const rideRequest = await RideRequest.findOne({
+      driverId: req.params.id,
+      status: "ongoing",
+    });
+    if (!rideRequest)
+      return res.status(404).json({ error: "RideRequest not found" });
+    // Convert rideRequest to a plain object
+    const rideRequestObj = rideRequest.toObject();
+
+    const polyLinePoints = await PolyLinePoints.findById(
+      rideRequestObj.polylinePoints
+    );
+    rideRequestObj.polylinePoints = polyLinePoints.points;
+
+    // Update the items array with the desired structure
+    rideRequestObj.items = await Promise.all(
+      rideRequestObj.items.map(async (itm) => {
+        const item = await Item.findById(itm.id);
+        if (!item) {
+          throw new Error(`Item with ID ${itm.id} not found`);
+        }
+        return {
+          ...item.toObject(), // Include only item fields
+          quantity: itm.quantity, // Add quantity from itm
+        };
+      })
+    );
+
+    // Send the updated rideRequest object
+    res.json(rideRequestObj);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Cancel RideRequest
+exports.cancelRideRequest = async (req, res) => {
+  try {
+    const rideRequest = await RideRequest.findByIdAndUpdate(
+      req.params.id,
+      { status: "canceled" },
+      { new: true }
+    );
+    if (!rideRequest)
+      return res.status(404).json({ error: "RideRequest not found" });
+    res.json(rideRequest);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Complete RideRequest
+exports.completeRideRequest = async (req, res) => {
+  try {
+    const rideRequest = await RideRequest.findByIdAndUpdate(
+      req.params.id,
+      { status: "completed" },
       { new: true }
     );
     if (!rideRequest)
@@ -319,6 +532,17 @@ exports.getDistance = async (req, res) => {
       destinationLong
     );
     res.send({ distance });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+//Get Polyline between two locations
+exports.getPolyline = async (req, res) => {
+  try {
+    const { origin, destination } = req.body;
+    const polyline = await getPolyline(origin, destination);
+    res.send({ polyline });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

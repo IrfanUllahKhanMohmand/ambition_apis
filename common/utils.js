@@ -22,7 +22,6 @@ const getDistance = (
         }
       })
       .catch((err) => {
-        console.log(err);
         reject(err);
       });
   });
@@ -62,8 +61,60 @@ const getEstimatedTime = (origin, destination) => {
   });
 };
 
+//function to get the polyline from the Google Directions API
+const getPolyline = (origin, destination) => {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  return new Promise((resolve, reject) => {
+    axios
+      .get(
+        `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&key=${apiKey}`
+      )
+      .then((res) => {
+        // Check if the data is already parsed
+        const data = res.data;
+        if (data.status === "OK") {
+          resolve(decodePolyline(data.routes[0].overview_polyline.points));
+        } else {
+          reject(data.error_message);
+        }
+      })
+      .catch((err) => reject(err));
+  });
+};
+
+const decodePolyline = (polyline) => {
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+  const coordinates = [];
+  while (index < polyline.length) {
+    let b;
+    let shift = 0;
+    let result = 0;
+    do {
+      b = polyline.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+    lat += dlat;
+    shift = 0;
+    result = 0;
+    do {
+      b = polyline.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+    lng += dlng;
+    coordinates.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+  return coordinates;
+};
+
 module.exports = {
   getDistance,
   getEstimatedFare,
   getEstimatedTime,
+  getPolyline,
 };
