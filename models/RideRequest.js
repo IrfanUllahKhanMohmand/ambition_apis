@@ -24,10 +24,14 @@ const rideRequestSchema = new mongoose.Schema({
   pickupLocation: {
     type: { type: String, default: "Point" },
     coordinates: { type: [Number], default: [0, 0] },
+    name: { type: String, default: "" },
+    address: { type: String, default: "" },
   },
   dropoffLocation: {
     type: { type: String, default: "Point" },
     coordinates: { type: [Number], default: [0, 0] },
+    name: { type: String, default: "" },
+    address: { type: String, default: "" },
   },
   distance: { type: Number, default: 0 },
   fare: { type: Number, default: 0 },

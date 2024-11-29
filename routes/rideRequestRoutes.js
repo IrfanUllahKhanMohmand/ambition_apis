@@ -14,8 +14,8 @@ const {
   getOnGoingRideRequestByUser,
   getOnGoingRideRequestByDriver,
   getPendingRideRequestsForDriverCarCategory,
-  getClosedRideRequestByDriver,
-  getClosedRideRequestByUser,
+  getClosedRideRequestsByDriver,
+  getClosedRideRequestsByUser,
   cancelRideRequest,
   completeRideRequest,
   getPolyline,
@@ -41,12 +41,12 @@ module.exports = (io) => {
 
   //get closed ride request by driver id
   router.get("/driver/closed/:id", (req, res) =>
-    getClosedRideRequestByDriver(req, res)
+    getClosedRideRequestsByDriver(req, res)
   );
 
   //get closed ride request by user id
   router.get("/user/closed/:id", (req, res) =>
-    getClosedRideRequestByUser(req, res)
+    getClosedRideRequestsByUser(req, res)
   );
 
   //cancel ride request
@@ -57,7 +57,7 @@ module.exports = (io) => {
 
   router.put("/:id", (req, res) => updateRideRequest(req, res));
   router.delete("/:id", (req, res) => deleteRideRequest(req, res));
-  router.put("/:id/driver", (req, res) => updateDriverId(req, res));
+  router.put("/:id/driver", (req, res) => updateDriverId(req, res, io));
   router.post("/distance", (req, res) => getDistance(req, res));
   router.post("/fare", (req, res) => getEstimatedFare(req, res));
   router.post("/time", (req, res) => getEstimatedTime(req, res));

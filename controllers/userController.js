@@ -100,6 +100,46 @@ exports.getUser = async (req, res) => {
   }
 };
 
+//Get user location by ID
+exports.getUserLocation = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    //add name and address to the location object
+    const location = {
+      ...user.location,
+      name: "Current Location",
+      address: "Current Address",
+    };
+    res.json(location);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+//Update user location by ID
+exports.updateUserLocation = async (req, res, io) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        location: { type: "Point", coordinates: [latitude, longitude] },
+      },
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ error: "User not found" });
+    const location = {
+      ...user.location,
+      name: "Current Location",
+      address: "Current Address",
+    };
+    io.emit("user_location_update", JSON.stringify(location));
+    res.json(location);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 // Get Current User
 exports.getCurrentUser = async (req, res) => {
   try {

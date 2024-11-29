@@ -213,7 +213,7 @@ exports.deleteDriver = async (req, res) => {
 };
 
 // update driver location
-exports.updateDriverLocation = async (req, res) => {
+exports.updateDriverLocation = async (req, res, io) => {
   try {
     const { latitude, longitude } = req.body;
     const driver = await Driver.findByIdAndUpdate(
@@ -224,7 +224,13 @@ exports.updateDriverLocation = async (req, res) => {
       { new: true }
     );
     if (!driver) return res.status(404).json({ error: "Driver not found" });
-    res.json(driver);
+    const location = {
+      ...driver.location,
+      name: "Current Location",
+      address: "Current Address",
+    };
+    io.emit("driver_location_update", JSON.stringify(location));
+    res.json(location);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -269,7 +275,13 @@ exports.getDriverLocation = async (req, res) => {
   try {
     const driver = await Driver.findById(req.params.id);
     if (!driver) return res.status(404).json({ error: "Driver not found" });
-    res.json(driver.location);
+    //add name and address to the location object
+    const location = {
+      ...driver.location,
+      name: "Current Location",
+      address: "Current Address",
+    };
+    res.json(location);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

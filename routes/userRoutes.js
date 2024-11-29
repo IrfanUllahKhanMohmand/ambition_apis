@@ -16,33 +16,43 @@ const {
   deleteUser,
   loginUser,
   checkEmail,
+  getUserLocation,
+  updateUserLocation,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 
-router.post(
-  "/",
-  upload.fields([{ name: "profile", maxCount: 1 }]),
-  checkEmail,
-  uploadToFirebase,
-  createUser
-);
+module.exports = (io) => {
+  router.post(
+    "/",
+    upload.fields([{ name: "profile", maxCount: 1 }]),
+    checkEmail,
+    uploadToFirebase,
+    createUser
+  );
 
-router.post("/login", loginUser);
+  router.post("/login", loginUser);
 
-router.get("/byId/:id", auth, getUser);
+  router.get("/byId/:id", auth, getUser);
 
-router.get("/me", auth, getCurrentUser);
+  router.get("/me", auth, getCurrentUser);
 
-router.get("/", getAllUsers);
+  //Get user location
+  router.get("/location/:id", getUserLocation);
 
-router.put(
-  "/:id",
-  auth,
-  upload.fields([{ name: "profile", maxCount: 1 }]),
-  uploadToFirebase,
+  //Update user location
+  router.put("/location/:id", (req, res) => updateUserLocation(req, res, io));
 
-  updateUser
-);
-router.delete("/:id", auth, deleteUser);
+  router.get("/", getAllUsers);
 
-module.exports = router;
+  router.put(
+    "/:id",
+    auth,
+    upload.fields([{ name: "profile", maxCount: 1 }]),
+    uploadToFirebase,
+
+    updateUser
+  );
+  router.delete("/:id", auth, deleteUser);
+
+  return router;
+};

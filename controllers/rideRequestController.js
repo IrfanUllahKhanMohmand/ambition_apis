@@ -18,8 +18,12 @@ exports.createRideRequest = async (req, res, io) => {
       moveType,
       pickupLocationLat,
       pickupLocationLng,
+      pickupLocationName,
+      pickupLocationAddress,
       dropoffLocationLat,
       dropoffLocationLng,
+      dropoffLocationName,
+      dropoffLocationAddress,
       distance,
       fare,
       items,
@@ -54,10 +58,14 @@ exports.createRideRequest = async (req, res, io) => {
       pickupLocation: {
         type: "Point",
         coordinates: [pickupLocationLat, pickupLocationLng],
+        name: pickupLocationName,
+        address: pickupLocationAddress,
       },
       dropoffLocation: {
         type: "Point",
         coordinates: [dropoffLocationLat, dropoffLocationLng],
+        name: dropoffLocationName,
+        address: dropoffLocationAddress,
       },
       polylinePoints: polyLinePoints._id,
       distance,
@@ -140,6 +148,11 @@ exports.getOnGoingRideRequestByUser = async (req, res) => {
 
     // Convert rideRequest to a plain object
     const rideRequestObj = rideRequest.toObject();
+
+    const polyLinePoints = await PolyLinePoints.findById(
+      rideRequestObj.polylinePoints
+    );
+    rideRequestObj.polylinePoints = polyLinePoints.points;
 
     // Update the items array with the desired structure
     rideRequestObj.items = await Promise.all(
@@ -249,8 +262,12 @@ exports.updateRideRequest = async (req, res) => {
       moveType,
       pickupLocationLat,
       pickupLocationLng,
+      pickupLocationName,
+      pickupLocationAddress,
       dropoffLocationLat,
       dropoffLocationLng,
+      dropoffLocationName,
+      dropoffLocationAddress,
       distance,
       fare,
       items,
@@ -264,17 +281,31 @@ exports.updateRideRequest = async (req, res) => {
 
     req.body = {};
 
-    if (pickupLocationLat && pickupLocationLng) {
+    if (
+      pickupLocationLat &&
+      pickupLocationLng &&
+      pickupLocationName &&
+      pickupLocationAddress
+    ) {
       req.body.pickupLocation = {
         type: "Point",
         coordinates: [pickupLocationLat, pickupLocationLng],
+        name: pickupLocationName,
+        address: pickupLocationAddress,
       };
     }
 
-    if (dropoffLocationLat && dropoffLocationLng) {
+    if (
+      dropoffLocationLat &&
+      dropoffLocationLng &&
+      dropoffLocationName &&
+      dropoffLocationAddress
+    ) {
       req.body.dropoffLocation = {
         type: "Point",
         coordinates: [dropoffLocationLat, dropoffLocationLng],
+        name: dropoffLocationName,
+        address: dropoffLocationAddress,
       };
     }
 
@@ -328,7 +359,7 @@ exports.deleteRideRequest = async (req, res) => {
 };
 
 //Update driver id in ride request
-exports.updateDriverId = async (req, res) => {
+exports.updateDriverId = async (req, res, io) => {
   try {
     const { driverId } = req.body;
     const rideRequest = await RideRequest.findByIdAndUpdate(
@@ -338,6 +369,7 @@ exports.updateDriverId = async (req, res) => {
     );
     if (!rideRequest)
       return res.status(404).json({ error: "RideRequest not found" });
+    io.emit("ride_request_accepted", rideRequest);
     res.json(rideRequest);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -352,7 +384,7 @@ exports.getClosedRideRequestsByDriver = async (req, res) => {
       status: { $in: ["completed", "canceled"] },
     });
     // Convert rideRequests to a plain object
-    const rideRequestObj = rideRequest.map((ride) => ride.toObject());
+    const rideRequestObj = rideRequests.map((ride) => ride.toObject());
 
     // Update the items array with the desired structure
     const processedRideRequests = await Promise.all(
@@ -389,7 +421,7 @@ exports.getClosedRideRequestsByUser = async (req, res) => {
     });
 
     // Convert rideRequests to a plain object
-    const rideRequestObj = rideRequest.map((ride) => ride.toObject());
+    const rideRequestObj = rideRequests.map((ride) => ride.toObject());
 
     // Update the items array with the desired structure
     const processedRideRequests = await Promise.all(
@@ -544,6 +576,6 @@ exports.getPolyline = async (req, res) => {
     const polyline = await getPolyline(origin, destination);
     res.send({ polyline });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ error: error });
   }
 };

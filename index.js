@@ -24,6 +24,8 @@ const io = new Server(httpServer, {
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
 
+  socket.broadcast.emit("foo", "bar");
+
   // Disconnect event
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
@@ -34,6 +36,11 @@ io.on("connection", (socket) => {
       message: `Server received: ${JSON.stringify(data)}`,
     });
   });
+
+  socket.on("event", (data) => {
+    console.log("Event received from client:", data);
+  });
+
   // Custom event listeners can be added here (e.g., order updates, ride status changes)
 });
 
@@ -42,13 +49,18 @@ io.on("connection", (socket) => {
 connectDB();
 
 // Routes
-app.use("/api/users", userRoutes);
-app.use("/api/drivers", driverRoutes);
+app.use("/api/users", userRoutes(io));
+app.use("/api/drivers", driverRoutes(io));
 app.use("/api/rides", rideRoutes);
 app.use("/api/vehicle-categories", vehicleCategoryRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/ride-requests", rideRequestRoutes(io));
 app.use("/api/vehicles", vehicleRoutes);
+
+app.get("/api/sendSocketEvent", (req, res) => {
+  io.emit("event", { message: "Hello from server!" });
+  res.send("Event sent!");
+});
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
