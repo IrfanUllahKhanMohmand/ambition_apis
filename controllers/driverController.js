@@ -176,25 +176,73 @@ exports.updateDriver = async (req, res) => {
       driverLicenseBack,
     } = req.fileUrls || {};
 
-    // Update req.body with the files if they exist
-    if (profile) req.body.profile = profile;
-    if (nationalIdFront) req.body.nationalIdFront = nationalIdFront;
-    if (nationalIdBack) req.body.nationalIdBack = nationalIdBack;
-    if (driverLicenseFront) req.body.driverLicenseFront = driverLicenseFront;
-    if (driverLicenseBack) req.body.driverLicenseBack = driverLicenseBack;
+    // Initialize an object to hold the updates
+    const updateFields = {};
 
-    // Attempt to update the driver document
-    const driver = await Driver.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+    // Add file URLs to updateFields if they exist
+    if (profile) updateFields.profile = profile;
+    if (nationalIdFront) updateFields.nationalIdFront = nationalIdFront;
+    if (nationalIdBack) updateFields.nationalIdBack = nationalIdBack;
+    if (driverLicenseFront)
+      updateFields.driverLicenseFront = driverLicenseFront;
+    if (driverLicenseBack) updateFields.driverLicenseBack = driverLicenseBack;
+
+    // Check for vehicle category and add it to updateFields
+    if (req.body.vehicleCategory) {
+      const vehicleCategory = await VehicleCategory.findById(
+        req.body.vehicleCategory
+      );
+      if (!vehicleCategory) {
+        return res.status(404).json({ error: "Vehicle category not found" });
+      }
+      updateFields.vehicleCategory = vehicleCategory._id;
+    }
+
+    // Fetch the existing driver document
+    const driver = await Driver.findById(req.params.id);
 
     // Check if driver exists; if not, send 404 response and exit
     if (!driver) {
       return res.status(404).json({ error: "Driver not found" });
     }
 
-    // Successfully updated, send 200 response
-    res.status(200).json({ message: "Driver updated successfully", driver });
+    // Update car fields only if they are provided in the request
+    const carUpdates = {};
+
+    if (req.body.carMake) carUpdates.make = req.body.carMake;
+    if (req.body.carModel) carUpdates.model = req.body.carModel;
+    if (req.body.carYear) carUpdates.year = req.body.carYear;
+    if (req.body.carPlate) carUpdates.plate = req.body.carPlate;
+    if (req.body.carColor) carUpdates.color = req.body.carColor;
+    if (req.body.vehicleCategory)
+      carUpdates.category = updateFields.vehicleCategory;
+
+    // If there are any updates to the car, merge them with existing car details
+    if (Object.keys(carUpdates).length > 0) {
+      updateFields.car = { ...driver.car.toObject(), ...carUpdates };
+    }
+
+    // Attempt to update the driver document with only the fields that exist
+    const updatedDriver = await Driver.findByIdAndUpdate(
+      req.params.id,
+      updateFields,
+      {
+        new: true,
+        runValidators: true, // Ensure validation is applied
+      }
+    );
+    if (!updatedDriver)
+      return res.status(404).json({ error: "Driver not found" });
+
+    // Fetch the car category for the current driver
+    const carCategory = await VehicleCategory.findById(
+      updatedDriver.car.category
+    );
+
+    res.json({
+      ...updatedDriver._doc,
+      car: { ...updatedDriver._doc.car, category: carCategory },
+    });
   } catch (error) {
     console.error(error); // Log the error for debugging
     res.status(400).json({ error: error.message });

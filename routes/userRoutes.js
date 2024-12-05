@@ -32,9 +32,9 @@ module.exports = (io) => {
 
   router.post("/login", loginUser);
 
-  router.get("/byId/:id", auth, getUser);
+  router.get("/byId/:id", getUser);
 
-  router.get("/me", auth, getCurrentUser);
+  router.get("/me", getCurrentUser);
 
   //Get user location
   router.get("/location/:id", getUserLocation);
@@ -46,13 +46,12 @@ module.exports = (io) => {
 
   router.put(
     "/:id",
-    auth,
     upload.fields([{ name: "profile", maxCount: 1 }]),
     uploadToFirebase,
 
     updateUser
   );
-  router.delete("/:id", auth, deleteUser);
+  router.delete("/:id", deleteUser);
 
   return router;
 };
