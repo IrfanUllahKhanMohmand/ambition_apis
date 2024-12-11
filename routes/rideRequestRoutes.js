@@ -19,16 +19,35 @@ const {
   cancelRideRequest,
   completeRideRequest,
   getPolyline,
+  getAllCompletedRideRequests,
+  getAllPendingRideRequests,
+  getAllOngoingRideRequests,
+  getAllCanceledRideRequests,
+  getRideStats,
 } = require("../controllers/rideRequestController");
 const auth = require("../middleware/auth");
 
 module.exports = (io) => {
   router.post("/", (req, res) => createRideRequest(req, res, io));
   router.get("/", (req, res) => getAllRideRequests(req, res));
-  router.get("/:id", (req, res) => getRideRequest(req, res));
+  router.get("/byId/:id", (req, res) => getRideRequest(req, res));
   //get on going ride request by user id
   router.get("/user/:id", (req, res) => getOnGoingRideRequestByUser(req, res));
 
+  //get all completed ride requests
+  router.get("/completed", (req, res) => getAllCompletedRideRequests(req, res));
+
+  //get all pending ride requests
+  router.get("/pending", (req, res) => getAllPendingRideRequests(req, res));
+
+  //get all ongoing ride requests
+  router.get("/ongoing", (req, res) => getAllOngoingRideRequests(req, res));
+
+  //get all canceled ride requests
+  router.get("/canceled", (req, res) => getAllCanceledRideRequests(req, res));
+
+  //get ride stats
+  router.get("/stats", (req, res) => getRideStats(req, res));
   //get pending ride requests for driver by car category
   router.get("/driver/:id", (req, res) =>
     getPendingRideRequestsForDriverCarCategory(req, res)

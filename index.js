@@ -6,11 +6,11 @@ const { Server } = require("socket.io");
 
 const userRoutes = require("./routes/userRoutes");
 const driverRoutes = require("./routes//driverRoutes");
-const rideRoutes = require("./routes/rideRoutes");
 const vehicleCategoryRoutes = require("./routes/vehicleCategoryRoutes");
 const itemRoutes = require("./routes/itemRoutes");
 const rideRequestRoutes = require("./routes/rideRequestRoutes");
 const vehicleRoutes = require("./routes/vehicleRoutes");
+const chatRoutes = require("./routes/chatRoutes");
 
 const app = express();
 
@@ -51,11 +51,11 @@ connectDB();
 // Routes
 app.use("/api/users", userRoutes(io));
 app.use("/api/drivers", driverRoutes(io));
-app.use("/api/rides", rideRoutes);
 app.use("/api/vehicle-categories", vehicleCategoryRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/ride-requests", rideRequestRoutes(io));
 app.use("/api/vehicles", vehicleRoutes);
+app.use("/api/chat", chatRoutes);
 
 app.get("/api/sendSocketEvent", (req, res) => {
   io.emit("event", { message: "Hello from server!" });

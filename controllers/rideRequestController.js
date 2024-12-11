@@ -253,6 +253,168 @@ exports.getAllRideRequests = async (req, res) => {
   }
 };
 
+// Get All Completed RideRequests
+exports.getAllCompletedRideRequests = async (req, res) => {
+  try {
+    // Fetch all ride requests as plain objects
+    const rideRequests = await RideRequest.find({ status: "completed" }).lean();
+
+    const processedRideRequests = await Promise.all(
+      rideRequests.map(async (ride) => {
+        const itemsWithDetails = await Promise.all(
+          ride.items.map(async (itm) => {
+            const item = await Item.findById(itm.id);
+
+            return {
+              item: item,
+              quantity: itm.quantity,
+            };
+          })
+        );
+
+        // Assign the detailed items back to the ride
+        ride.items = itemsWithDetails;
+        return ride;
+      })
+    );
+
+    res.json(processedRideRequests);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get All Pending RideRequests
+exports.getAllPendingRideRequests = async (req, res) => {
+  try {
+    const rideRequests = await RideRequest.find({ status: "pending" }).lean();
+
+    if (!rideRequests.length) {
+      return res.json([]);
+    }
+
+    console.log("Ride Requests:", rideRequests); // Log fetched documents
+
+    const processedRideRequests = await Promise.all(
+      rideRequests.map(async (ride) => {
+        const itemsWithDetails = await Promise.all(
+          ride.items.map(async (itm) => {
+            const item = await Item.findById(itm.id);
+            return {
+              item: item,
+              quantity: itm.quantity,
+            };
+          })
+        );
+
+        // Assign the detailed items back to the ride
+        ride.items = itemsWithDetails;
+        return ride;
+      })
+    );
+
+    res.json(processedRideRequests);
+  } catch (error) {
+    console.error("Error fetching ride requests:", error.message); // Log error
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get All Ongoing RideRequests
+exports.getAllOngoingRideRequests = async (req, res) => {
+  try {
+    // Fetch all ride requests as plain objects
+    const rideRequests = await RideRequest.find({ status: "ongoing" }).lean();
+
+    const processedRideRequests = await Promise.all(
+      rideRequests.map(async (ride) => {
+        const itemsWithDetails = await Promise.all(
+          ride.items.map(async (itm) => {
+            const item = await Item.findById(itm.id);
+
+            return {
+              item: item,
+              quantity: itm.quantity,
+            };
+          })
+        );
+
+        // Assign the detailed items back to the ride
+        ride.items = itemsWithDetails;
+        return ride;
+      })
+    );
+
+    res.json(processedRideRequests);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get All Canceled RideRequests
+exports.getAllCanceledRideRequests = async (req, res) => {
+  try {
+    // Fetch all ride requests as plain objects
+    const rideRequests = await RideRequest.find({ status: "canceled" }).lean();
+
+    const processedRideRequests = await Promise.all(
+      rideRequests.map(async (ride) => {
+        const itemsWithDetails = await Promise.all(
+          ride.items.map(async (itm) => {
+            const item = await Item.findById(itm.id);
+
+            return {
+              item: item,
+              quantity: itm.quantity,
+            };
+          })
+        );
+
+        // Assign the detailed items back to the ride
+        ride.items = itemsWithDetails;
+        return ride;
+      })
+    );
+
+    res.json(processedRideRequests);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get number of total rides, total completed rides, total canceled rides, and total ongoing rides.
+// Also get total revenue from completed rides.
+
+exports.getRideStats = async (req, res) => {
+  try {
+    const totalRides = await RideRequest.countDocuments();
+    const totalCompletedRides = await RideRequest.countDocuments({
+      status: "completed",
+    });
+    const totalCanceledRides = await RideRequest.countDocuments({
+      status: "canceled",
+    });
+    const totalOngoingRides = await RideRequest.countDocuments({
+      status: "ongoing",
+    });
+    const completedRides = await RideRequest.find({
+      status: "completed",
+    });
+    const totalRevenue = completedRides.reduce((acc, ride) => {
+      return acc + ride.fare;
+    }, 0);
+    res.json({
+      totalRides,
+      totalCompletedRides,
+      totalCanceledRides,
+      totalOngoingRides,
+      totalRevenue,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Update RideRequest
 exports.updateRideRequest = async (req, res) => {
   try {
