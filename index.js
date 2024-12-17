@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 const connectDB = require("./config/db");
 require("dotenv").config();
 const { createServer } = require("http");
@@ -12,8 +13,11 @@ const rideRequestRoutes = require("./routes/rideRequestRoutes");
 const vehicleRoutes = require("./routes/vehicleRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 
+const adminRoutes = require("./routes/adminRoutes");
+
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 
 const httpServer = createServer(app);
@@ -56,6 +60,7 @@ app.use("/api/items", itemRoutes);
 app.use("/api/ride-requests", rideRequestRoutes(io));
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/admins", adminRoutes);
 
 app.get("/api/sendSocketEvent", (req, res) => {
   io.emit("event", { message: "Hello from server!" });
