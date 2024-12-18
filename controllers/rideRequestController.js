@@ -235,7 +235,7 @@ exports.getAllRideRequests = async (req, res) => {
           ride.items.map(async (itm) => {
             const item = await Item.findById(itm.id);
             return {
-              item: item,
+              ...item.toObject(),
               quantity: itm.quantity,
             };
           })
@@ -266,7 +266,7 @@ exports.getAllCompletedRideRequests = async (req, res) => {
             const item = await Item.findById(itm.id);
 
             return {
-              item: item,
+              ...item.toObject(),
               quantity: itm.quantity,
             };
           })
@@ -301,7 +301,7 @@ exports.getAllPendingRideRequests = async (req, res) => {
           ride.items.map(async (itm) => {
             const item = await Item.findById(itm.id);
             return {
-              item: item,
+              ...item.toObject(),
               quantity: itm.quantity,
             };
           })
@@ -333,7 +333,7 @@ exports.getAllOngoingRideRequests = async (req, res) => {
             const item = await Item.findById(itm.id);
 
             return {
-              item: item,
+              ...item.toObject(),
               quantity: itm.quantity,
             };
           })
@@ -364,7 +364,7 @@ exports.getAllCanceledRideRequests = async (req, res) => {
             const item = await Item.findById(itm.id);
 
             return {
-              item: item,
+              ...item.toObject(),
               quantity: itm.quantity,
             };
           })
