@@ -1,6 +1,8 @@
 const RideRequest = require("../models/RideRequest");
 const Item = require("../models/Item");
 const Driver = require("../models/Driver");
+const User = require("../models/User");
+const VehicleCategory = require("../models/VehicleCategory");
 const PolyLinePoints = require("../models/PolyLinePoints");
 const {
   getDistance,
@@ -128,6 +130,74 @@ exports.getRideRequest = async (req, res) => {
 
     // Send the updated rideRequest object
     res.json(rideRequestObj);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get Ride Request by ID with driver details and user details
+exports.getRideRequestWithDriverAndUser = async (req, res) => {
+  try {
+    const rideRequest = await RideRequest.findById(req.params.id);
+    if (!rideRequest)
+      return res.status(404).json({ error: "RideRequest not found" });
+
+    // Convert rideRequest to a plain object
+    const rideRequestObj = rideRequest.toObject();
+
+    const polyLinePoints = await PolyLinePoints.findById(
+      rideRequestObj.polylinePoints
+    );
+    rideRequestObj.polylinePoints = polyLinePoints
+      ? polyLinePoints.points
+      : null;
+
+    // Update the items array with the desired structure
+    rideRequestObj.items = await Promise.all(
+      rideRequestObj.items.map(async (itm) => {
+        const item = await Item.findById(itm.id);
+        if (!item) {
+          throw new Error(`Item with ID ${itm.id} not found`);
+        }
+        return {
+          ...item.toObject(), // Include only item fields
+          quantity: itm.quantity, // Add quantity from itm
+        };
+      })
+    );
+
+    // Handle driver details
+    let updatedDriver = null;
+    if (rideRequestObj.driverId) {
+      const driver = await Driver.findById(rideRequestObj.driverId);
+      if (!driver) {
+        throw new Error(`Driver with ID ${rideRequestObj.driverId} not found`);
+      }
+      const carCategory = await VehicleCategory.findById(driver.car.category);
+      if (!carCategory) {
+        throw new Error(
+          `Car category with ID ${driver.car.category} not found`
+        );
+      }
+      driver.car.category = carCategory.toObject();
+      updatedDriver = {
+        ...driver._doc,
+        car: { ...driver._doc.car, category: carCategory },
+      };
+    }
+
+    // Get user details
+    const user = await User.findById(rideRequestObj.user);
+    if (!user) {
+      throw new Error(`User with ID ${rideRequestObj.user} not found`);
+    }
+
+    // Send the updated rideRequest object
+    res.json({
+      ...rideRequestObj,
+      driver: updatedDriver, // Include driver or null
+      user: user.toObject(),
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

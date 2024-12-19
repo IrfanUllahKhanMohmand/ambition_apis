@@ -24,6 +24,7 @@ const {
   getAllOngoingRideRequests,
   getAllCanceledRideRequests,
   getRideStats,
+  getRideRequestWithDriverAndUser,
 } = require("../controllers/rideRequestController");
 const auth = require("../middleware/auth");
 
@@ -31,6 +32,12 @@ module.exports = (io) => {
   router.post("/", (req, res) => createRideRequest(req, res, io));
   router.get("/", (req, res) => getAllRideRequests(req, res));
   router.get("/byId/:id", (req, res) => getRideRequest(req, res));
+
+  //get ride request by id with user and driver details
+  router.get("/details/:id", (req, res) =>
+    getRideRequestWithDriverAndUser(req, res)
+  );
+
   //get on going ride request by user id
   router.get("/user/:id", (req, res) => getOnGoingRideRequestByUser(req, res));
 
