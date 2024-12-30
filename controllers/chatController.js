@@ -19,7 +19,7 @@ exports.fetchConversations = async (req, res) => {
         },
       },
       {
-        $sort: { createdAt: -1 }, // Sort by most recent message
+        $sort: { createdAt: -1, _id: -1 }, // Sort by createdAt and _id to resolve ties
       },
       {
         $group: {
@@ -39,12 +39,12 @@ exports.fetchConversations = async (req, res) => {
               },
             },
           },
-          lastMessage: { $first: "$$ROOT" },
+          lastMessage: { $first: "$$ROOT" }, // Ensure consistency in grouped results
         },
       },
       {
         $lookup: {
-          from: "users", // Look up user details if it's a User
+          from: "users",
           localField: "_id.participantId",
           foreignField: "_id",
           as: "userDetails",
@@ -52,10 +52,47 @@ exports.fetchConversations = async (req, res) => {
       },
       {
         $lookup: {
-          from: "drivers", // Look up driver details if it's a Driver
+          from: "drivers",
           localField: "_id.participantId",
           foreignField: "_id",
           as: "driverDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$driverDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "vehiclecategories",
+          localField: "driverDetails.car.category",
+          foreignField: "_id",
+          as: "carCategory",
+        },
+      },
+      {
+        $addFields: {
+          "driverDetails.car.category": {
+            $arrayElemAt: ["$carCategory", 0], // Assign the full VehicleCategory object
+          },
+        },
+      },
+      {
+        $project: {
+          carCategory: 0, // Remove the temporary carCategory field
+        },
+      },
+      {
+        $addFields: {
+          participantDetails: {
+            $cond: {
+              if: { $eq: ["$_id.participantModel", "User"] },
+              then: { $arrayElemAt: ["$userDetails", 0] },
+              else: "$driverDetails",
+            },
+          },
         },
       },
       {
@@ -63,15 +100,17 @@ exports.fetchConversations = async (req, res) => {
           participantId: "$_id.participantId",
           participantModel: "$_id.participantModel",
           lastMessage: 1,
-          userDetails: { $arrayElemAt: ["$userDetails", 0] },
-          driverDetails: { $arrayElemAt: ["$driverDetails", 0] },
+          participantDetails: 1,
         },
       },
-    ]);
+      {
+        $sort: { "lastMessage.createdAt": -1, "lastMessage._id": -1 }, // Final sort after grouping
+      },
+    ]).allowDiskUse(true); // Allow disk use for large datasets
 
     res.status(200).json(conversations);
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).json({ error: "Failed to fetch conversations" });
   }
 };
@@ -102,7 +141,7 @@ exports.fetchChatWithUser = async (req, res) => {
 };
 
 // Send Message
-exports.sendMessage = async (req, res) => {
+exports.sendMessage = async (req, res, io) => {
   const { sender, receiver, message } = req.body;
 
   try {
@@ -134,6 +173,10 @@ exports.sendMessage = async (req, res) => {
       receiverModel,
       message,
     });
+
+    // Emit the new message to the receiver
+    io.emit("chat_message", JSON.stringify(newMessage));
+    console.log("Message sent:", newMessage);
 
     res.status(201).json(newMessage);
   } catch (error) {

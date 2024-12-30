@@ -59,7 +59,7 @@ app.use("/api/vehicle-categories", vehicleCategoryRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/ride-requests", rideRequestRoutes(io));
 app.use("/api/vehicles", vehicleRoutes);
-app.use("/api/chat", chatRoutes);
+app.use("/api/chat", chatRoutes(io));
 app.use("/api/admins", adminRoutes);
 
 app.get("/api/sendSocketEvent", (req, res) => {
