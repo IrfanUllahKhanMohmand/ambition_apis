@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const RideRequest = require("../models/RideRequest");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
@@ -133,7 +134,29 @@ exports.updateUserLocation = async (req, res, io) => {
       name: "Current Location",
       address: "Current Address",
     };
-    io.emit("user_location_update", JSON.stringify(location));
+    const rideRequest = await RideRequest.findOne({
+      user: req.params.id,
+      status: "ongoing",
+    });
+
+    if (rideRequest) {
+      // Emit to driver if driverId is not null
+      if (rideRequest.driverId) {
+        io.emit(
+          "user_location_update_" + rideRequest.driverId,
+          JSON.stringify(location)
+        );
+      }
+
+      // Emit to user if user is not null
+      if (rideRequest.user) {
+        io.emit(
+          "user_location_update_" + rideRequest.user,
+          JSON.stringify(location)
+        );
+      }
+    }
+
     res.json(location);
   } catch (error) {
     res.status(400).json({ error: error.message });

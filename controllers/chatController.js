@@ -175,8 +175,8 @@ exports.sendMessage = async (req, res, io) => {
     });
 
     // Emit the new message to the receiver
-    io.emit("chat_message", JSON.stringify(newMessage));
-    console.log("Message sent:", newMessage);
+    io.emit("chat_message_" + sender, JSON.stringify(newMessage));
+    io.emit("chat_message_" + receiver, JSON.stringify(newMessage));
 
     res.status(201).json(newMessage);
   } catch (error) {

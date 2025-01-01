@@ -601,7 +601,14 @@ exports.updateDriverId = async (req, res, io) => {
     );
     if (!rideRequest)
       return res.status(404).json({ error: "RideRequest not found" });
-    io.emit("ride_request_accepted", rideRequest);
+    if (rideRequest.driverId) {
+      io.emit("ride_request_accepted_" + rideRequest.driverId, rideRequest);
+    }
+
+    // Emit to user if user is not null
+    if (rideRequest.user) {
+      io.emit("ride_request_accepted_" + rideRequest.user, rideRequest);
+    }
     res.json(rideRequest);
   } catch (error) {
     res.status(400).json({ error: error.message });
