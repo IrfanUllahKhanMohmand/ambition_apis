@@ -69,13 +69,41 @@ exports.getItem = async (req, res) => {
 // Update Item
 exports.updateItem = async (req, res) => {
   try {
-    const item = await Item.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    if (!item) return res.status(404).json({ error: "Item not found" });
-    res.json(item);
+    const { id } = req.params; // Get item ID from request parameters
+    const { name, itemType } = req.body; // Extract name and itemType from request body
+
+    // Find the item by ID
+    const item = await Item.findById(id);
+    if (!item) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    // Validate itemType if it is provided in the request body
+    if (itemType && !itemDimensions[itemType]) {
+      return res.status(400).json({ error: "Invalid itemType" });
+    }
+
+    // Update name if provided
+    if (name) {
+      item.name = name;
+    }
+
+    // Update itemType and its corresponding dimensions if provided
+    if (itemType) {
+      const { height, width, length, weight } = itemDimensions[itemType];
+      item.itemType = itemType;
+      item.height = height;
+      item.width = width;
+      item.length = length;
+      item.weight = weight;
+    }
+
+    // Save the updated item to the database
+    await item.save();
+
+    res.status(200).json(item);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
