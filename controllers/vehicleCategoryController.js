@@ -356,7 +356,12 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
       moveFilteredVehicles = filteredVehicles.filter(
         (vehicle) => vehicle.vehicleType === "Luton Van"
       );
-    } else {
+    } else if (moveType === "ambition enviorment") {
+      moveFilteredVehicles = filteredVehicles.filter(
+        (vehicle) => vehicle.vehicleType === "Environment Van"
+      );
+    }
+    else {
       moveFilteredVehicles = filteredVehicles;
     }
 
