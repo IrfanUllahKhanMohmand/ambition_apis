@@ -8,6 +8,11 @@ const rideRequestSchema = new mongoose.Schema({
     ref: "Driver",
     default: null,
   },
+  carDriverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Driver",
+    default: null,
+  },
   polylinePoints: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "PolyLinePoints",
@@ -17,9 +22,26 @@ const rideRequestSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "VehicleCategory",
   },
+  carCategory: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "VehicleCategory",
+    default: null,
+  },
   moveType: {
     type: String,
     required: true,
+  },
+  jobType: {
+    type: String,
+    required: true,
+  },
+  isRideAndMove: {
+    type: Boolean,
+    default: false,
+  },
+  isEventJob: {
+    type: Boolean,
+    default: false,
   },
   pickupLocation: {
     type: { type: String, default: "Point" },
@@ -34,7 +56,13 @@ const rideRequestSchema = new mongoose.Schema({
     address: { type: String, default: "" },
   },
   distance: { type: Number, default: 0 },
-  fare: { type: Number, default: 0 },
+  fare: {
+    vehicleBaseFare: { type: Number, default: 0 },
+    vehicleDistanceFare: { type: Number, default: 0 },
+    carBaseFare: { type: Number, default: 0 },
+    carDistanceFare: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
+  },
   items: [
     {
       id: { type: mongoose.Schema.Types.ObjectId, ref: "Item" },
@@ -57,6 +85,7 @@ const rideRequestSchema = new mongoose.Schema({
     peopleTaggingAlong: Number,
     specialRequirements: String,
   },
+  passengersCount: { type: Number, default: 0 },
   status: {
     type: String,
     enum: ["pending", "ongoing", "completed", "canceled"],

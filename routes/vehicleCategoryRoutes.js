@@ -9,6 +9,7 @@ const {
   updateVehicleCategory,
   deleteVehicleCategory,
   getVehicleCategoriesByItems,
+  getCarCategoriesByPassengers,
 } = require("../controllers/vehicleCategoryController");
 
 // Create a Vehicle Category
@@ -31,5 +32,8 @@ router.delete("/:id", deleteVehicleCategory);
 
 // Get vehicle category by items and custom items
 router.post("/items", getVehicleCategoriesByItems);
+
+// Get vehicle category by passengers
+router.post("/passengers", getCarCategoriesByPassengers);
 
 module.exports = router;
