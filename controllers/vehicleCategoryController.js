@@ -74,7 +74,19 @@ exports.deleteVehicleCategory = async (req, res) => {
 
 // Fetch all vehicle categories based on list of items by calculating the total volume and weight and also passenger capacity
 // /controllers/vehicleController.js
-
+const categorizeCustomItem = (customItem, initialItems) => {
+  for (let item of initialItems) {
+    if (
+      customItem.length <= item.length &&
+      customItem.width <= item.width &&
+      customItem.height <= item.height &&
+      customItem.weight <= item.weight
+    ) {
+      return item.name; // Return the category name (e.g., "Extra Small")
+    }
+  }
+  return null; // If no category matches
+};
 exports.getVehicleCategoriesByItems = async (req, res) => {
   try {
     const {
@@ -105,201 +117,6 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
       "Extra Large": 0,
     };
 
-    const vanCategories = {
-      "Ambition Lite": {
-        "Extra Small": 15,
-        Small: 10,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambition Central": {
-        "Extra Small": 40,
-        Small: 30,
-        Medium: 10,
-        "Medium +": 5,
-        Large: 5,
-        "Extra Large": 0,
-      },
-      "Ambition Central-Hi": {
-        "Extra Small": 45,
-        Small: 40,
-        Medium: 10,
-        "Medium +": 5,
-        Large: 5,
-        "Extra Large": 0,
-      },
-      "Ambition Large": {
-        "Extra Small": 50,
-        Small: 40,
-        Medium: 15,
-        "Medium +": 10,
-        Large: 10,
-        "Extra Large": 5,
-      },
-      "Ambition Extra Large": {
-        "Extra Small": 60,
-        Small: 35,
-        Medium: 15,
-        "Medium +": 15,
-        Large: 10,
-        "Extra Large": 5,
-      },
-      "Ambition Crew": {
-        "Extra Small": 40,
-        Small: 30,
-        Medium: 10,
-        "Medium +": 5,
-        Large: 5,
-        "Extra Large": 5,
-      },
-      "Ambition Group": {
-        "Extra Small": 55,
-        Small: 40,
-        Medium: 15,
-        "Medium +": 10,
-        Large: 5,
-        "Extra Large": 5,
-      },
-      "Ambition Assist": {
-        "Extra Small": 10,
-        Small: 20,
-        Medium: 5,
-        "Medium +": 3,
-        Large: 5,
-        "Extra Large": 0,
-      },
-      "Ambition Environment Lite": {
-        "Extra Small": 15,
-        Small: 10,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambition Environment Central": {
-        "Extra Small": 40,
-        Small: 30,
-        Medium: 10,
-        "Medium +": 5,
-        Large: 5,
-        "Extra Large": 0,
-      },
-      "Ambition Environment Large": {
-        "Extra Small": 50,
-        Small: 40,
-        Medium: 15,
-        "Medium +": 10,
-        Large: 10,
-        "Extra Large": 5,
-      },
-      Ambitious: {
-        "Extra Small": 0,
-        Small: 0,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambitious XL": {
-        "Extra Small": 0,
-        Small: 0,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambitious Luxury": {
-        "Extra Small": 0,
-        Small: 0,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambitious Executive": {
-        "Extra Small": 0,
-        Small: 0,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambitious Environment": {
-        "Extra Small": 0,
-        Small: 0,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambitious Assist": {
-        "Extra Small": 0,
-        Small: 0,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambitious Team": {
-        "Extra Small": 0,
-        Small: 0,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambition Pet": {
-        "Extra Small": 0,
-        Small: 0,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambition Small Luton": {
-        "Extra Small": 70,
-        Small: 65,
-        Medium: 25,
-        "Medium +": 15,
-        Large: 15,
-        "Extra Large": 5,
-      },
-      "Ambition Big Luton": {
-        "Extra Small": 75,
-        Small: 70,
-        Medium: 30,
-        "Medium +": 10,
-        Large: 20,
-        "Extra Large": 10,
-      },
-      "Ambition Refrigeration Lite": {
-        "Extra Small": 15,
-        Small: 10,
-        Medium: 0,
-        "Medium +": 0,
-        Large: 0,
-        "Extra Large": 0,
-      },
-      "Ambition Refrigeration Central": {
-        "Extra Small": 40,
-        Small: 30,
-        Medium: 10,
-        "Medium +": 5,
-        Large: 5,
-        "Extra Large": 0,
-      },
-      "Ambition Refrigeration Large": {
-        "Extra Small": 50,
-        Small: 40,
-        Medium: 15,
-        "Medium +": 10,
-        Large: 10,
-        "Extra Large": 5,
-      },
-    };
-
     const distance = await getDistance(
       originLat,
       originLong,
@@ -324,10 +141,26 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
     }
 
     // Process custom items
-    customItems.forEach((itm) => {
-      totalVolume += itm.height * itm.width * itm.length;
-      totalWeight += itm.weight;
+    customItems.forEach((customItem) => {
+      const quantity = customItem.quantity || 1;
+      totalVolume += customItem.height * customItem.width * customItem.length;
+      totalWeight += customItem.weight;
+
+      // Categorize the custom item
+      const category = categorizeCustomItem(customItem, [
+        { name: "Extra Small", length: 0.3, width: 0.3, height: 0.3, weight: 20 },
+        { name: "Small", length: 0.5, width: 0.5, height: 0.5, weight: 25 },
+        { name: "Medium", length: 1.2, width: 1.2, height: 1.2, weight: 35 },
+        { name: "Medium +", length: 1.9, width: 1.9, height: 1.9, weight: 100 },
+        { name: "Large", length: 2.5, width: 2.5, height: 2.5, weight: 150 },
+        { name: "Extra Large", length: 2.6, width: 2.6, height: 2.6, weight: 151 },
+      ]);
+
+      if (category) {
+        itemCounts[category] += quantity;
+      }
     });
+
 
     // Fetch and filter vehicles
     const vehicleCategories = await VehicleCategory.find({
@@ -337,7 +170,7 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
     });
 
     const filteredVehicles = vehicleCategories.filter((vehicle) => {
-      const vanCategoryLimits = vanCategories[vehicle.name];
+      const vanCategoryLimits = vehicle.capacity;
       if (vanCategoryLimits) {
         return Object.keys(itemCounts).every(
           (itemType) =>
@@ -360,8 +193,7 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
       moveFilteredVehicles = filteredVehicles.filter(
         (vehicle) => vehicle.vehicleType === "Environment Van"
       );
-    }
-    else {
+    } else {
       moveFilteredVehicles = filteredVehicles;
     }
 
@@ -374,7 +206,7 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
       return a.passengerCapacity - b.passengerCapacity;
     });
 
-    // Add fares
+    // Add fares and calculate item-based pricing
     const vehiclesWithFare = await Promise.all(
       moveFilteredVehicles.map(async (vehicle) => {
         try {
@@ -383,8 +215,20 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
             distance,
             vehicle._id
           );
+
+          // Calculate item-based pricing
+          const itemBasedPricing = Object.keys(itemCounts).reduce(
+            (acc, itemType) => acc + (itemCounts[itemType] * (vehicle.pricing[itemType] || 0)),
+            0
+          );
+
+          // Calculate event fare
+          plainVehicle.itemBasedPricing = itemBasedPricing;
           plainVehicle.eventFare =
-            plainVehicle.baseFare + plainVehicle.estimatedFare;
+            plainVehicle.baseFare +
+            plainVehicle.estimatedFare +
+            itemBasedPricing;
+
           return plainVehicle;
         } catch (error) {
           console.error(
@@ -411,6 +255,7 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 exports.getCarCategoriesByPassengers = async (req, res) => {
   try {
@@ -472,3 +317,5 @@ exports.getCarCategoriesByPassengers = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+

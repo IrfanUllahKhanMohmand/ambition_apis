@@ -9,6 +9,14 @@ const vehicleCategorySchema = new mongoose.Schema({
   name: String,
   passengerCapacity: Number,
   payloadCapacity: Number,
+  capacity: {
+    type: Object, // Size categories and their capacities
+    default: {},
+  },
+  pricing: {
+    type: Object, // Size categories and their prices
+    default: {},
+  },
   loadVolume: Number,
   baseFare: Number,
   timeFare: Number,

@@ -76,6 +76,7 @@ const rideRequestSchema = new mongoose.Schema({
       width: Number,
       height: Number,
       weight: Number,
+      quantity: { type: Number, default: 1 },
     },
   ],
   requirements: {

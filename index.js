@@ -4,7 +4,6 @@ const connectDB = require("./config/db");
 require("dotenv").config();
 const { createServer } = require("http");
 const { Server } = require("socket.io");
-const mongoose = require("mongoose");
 
 const userRoutes = require("./routes/userRoutes");
 const driverRoutes = require("./routes//driverRoutes");
@@ -13,8 +12,10 @@ const itemRoutes = require("./routes/itemRoutes");
 const rideRequestRoutes = require("./routes/rideRequestRoutes");
 const vehicleRoutes = require("./routes/vehicleRoutes");
 const chatRoutes = require("./routes/chatRoutes");
+const repeatJobRoutes = require("./routes/repeatJobRoutes");
 
 const adminRoutes = require("./routes/adminRoutes");
+
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use("/api/ride-requests", rideRequestRoutes(io));
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/chat", chatRoutes(io));
 app.use("/api/admins", adminRoutes);
+app.use("/api/repeat-jobs", repeatJobRoutes);
 
 app.get("/api/sendSocketEvent", (req, res) => {
   io.emit("event", { message: "Hello from server!" });
@@ -69,15 +71,42 @@ app.get("/api/sendSocketEvent", (req, res) => {
 });
 
 //Endpoint to delete a specific collection in mongoDB
-app.delete("/api/deleteCollection", async (req, res) => {
-  try {
-    const collection = req.body.collection;
-    await mongoose.connection.dropCollection(collection);
-    res.status(200).json({ message: "Collection deleted successfully" });
-  } catch (error) {
-    res.status(500).send(error);
-  }
-});
+// app.delete("/api/deleteCollection", async (req, res) => {
+//   try {
+//     const collection = req.body.collection;
+//     await mongoose.connection.dropCollection(collection);
+//     res.status(200).json({ message: "Collection deleted successfully" });
+//   } catch (error) {
+//     res.status(500).send(error);
+//   }
+// });
+
+
+
+
+//Endpoint to update vehicle category pricing
+// app.put("/api/updateVehicleCategoryPricing", async (req, res) => {
+//   try {
+//     for (const van of vanData) {
+//       await VehicleCategory.updateOne(
+//         { name: van.vanCategory }, // Match the vanCategory to vehicleType
+//         {
+//           $set: {
+//             capacity: van.capacity,
+//             pricing: van.pricing,
+//             updatedAt: new Date(),
+//           },
+//         },
+//         { upsert: true } // If the document doesn't exist, create a new one
+//       );
+//     }
+
+//     return res.status(200).json({ message: "Vehicle categories updated successfully " });
+//   } catch (err) {
+//     return res.status(500).json({ message: err.message });
+//   }
+// }
+// );
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
