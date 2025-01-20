@@ -87,11 +87,22 @@ const rideRequestSchema = new mongoose.Schema({
     specialRequirements: String,
   },
   passengersCount: { type: Number, default: 0 },
+  //status differ when isRideAndMove is true. Then it includes for both vehicle and car
   status: {
     type: String,
-    enum: ["pending", "ongoing", "completed", "canceled"],
+    enum: [
+      "pending",
+      "accepted",
+      "cancelled",
+      "completed",
+      "driver_accepted",
+      "driver_completed",
+      "car_accepted",
+      "car_completed",
+    ],
     default: "pending",
   },
+
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

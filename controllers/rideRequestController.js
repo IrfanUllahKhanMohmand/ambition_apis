@@ -134,9 +134,9 @@ exports.createRideRequest = async (req, res, io) => {
 
     const carDrivers = carCategory
       ? await Driver.find({
-          "car.category": carCategory,
-          status: "online",
-        })
+        "car.category": carCategory,
+        status: "online",
+      })
       : [];
 
     // Emit the ride request to all relevant drivers
@@ -265,7 +265,9 @@ exports.getOnGoingRideRequestByUser = async (req, res) => {
     // Fetch the RideRequest
     const rideRequest = await RideRequest.findOne({
       user: req.params.id,
-      status: { $in: ["pending", "ongoing"] },
+      status: {
+        $in: ["pending", "accepted", "driver_accepted", "car_accepted"]
+      },
     });
 
     if (!rideRequest) {
@@ -312,15 +314,33 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
 
     // Fetch the RideRequests that match either vehicleCategory or carCategory
     const rideRequests = await RideRequest.find({
-      status: { $in: ["pending"] },
       $or: [
-        { vehicleCategory: driver.car.category },
-        { carCategory: driver.car.category },
+        // For "pending" status: Fetch if either vehicleCategory or carCategory matches
+        {
+          status: "pending",
+          $or: [
+            { vehicleCategory: driver.car.category },
+            { carCategory: driver.car.category },
+          ],
+        },
+
+        // For "car_accepted" status: Fetch only if vehicleCategory matches
+        {
+          status: "car_accepted",
+          vehicleCategory: driver.car.category,
+        },
+
+        // For "driver_accepted" status: Fetch only if carCategory matches
+        {
+          status: "driver_accepted",
+          carCategory: driver.car.category,
+        },
       ],
     });
 
+
     if (!rideRequests || rideRequests.length === 0) {
-      return res.status(404).json({ error: "No matching RideRequests found" });
+      return res.json([]);
     }
 
     // Convert rideRequests to plain objects
@@ -694,11 +714,7 @@ exports.updateDriverId = async (req, res, io) => {
 
     // Helper function to update and emit ride details
     const updateAndEmitRide = async (updateFields, emitKeyPrefix) => {
-      const updatedRide = await RideRequest.findByIdAndUpdate(
-        req.params.id,
-        updateFields,
-        { new: true }
-      );
+      const updatedRide = await RideRequest.findByIdAndUpdate(req.params.id, updateFields, { new: true });
 
       if (!updatedRide) {
         return res.status(404).json({ error: "RideRequest not found" });
@@ -717,23 +733,56 @@ exports.updateDriverId = async (req, res, io) => {
       res.json(updatedRide);
     };
 
-    // Check category matches and proceed with update
-    if (vehicleCategoryId === driverCarCategoryId) {
-      await updateAndEmitRide({ driverId }, "ride_request_accepted");
-    } else if (carCategoryId === driverCarCategoryId) {
-      await updateAndEmitRide(
-        { carDriverId: driverId },
-        "ride_request_accepted"
-      );
+    // Determine the new status based on isRideMove and driver type
+    let newStatus;
+    let updateField;
+
+    if (ride.isRideAndMove) {
+      if (vehicleCategoryId === driverCarCategoryId) {
+        // Check if driverId is already set
+        if (ride.driverId && ride.driverId !== null) {
+          return res.status(400).json({ error: "Ride already accepted by another driver" });
+        }
+        newStatus = ride.status === "car_accepted" ? "accepted" : "driver_accepted";
+        updateField = { driverId, status: newStatus };
+      } else if (carCategoryId === driverCarCategoryId) {
+        // Check if carDriverId is already set
+        if (ride.carDriverId && ride.carDriverId !== null) {
+          return res.status(400).json({ error: "Ride already accepted by another driver" });
+        }
+        newStatus = ride.status === "driver_accepted" ? "accepted" : "car_accepted";
+        updateField = { carDriverId: driverId, status: newStatus };
+      } else {
+        return res.status(400).json({ error: "Driver's category does not match any ride category" });
+      }
     } else {
-      res
-        .status(400)
-        .json({ error: "Driver's category does not match any ride category" });
+      if (vehicleCategoryId === driverCarCategoryId) {
+        // Check if driverId is already set
+        if (ride.driverId && ride.driverId !== null) {
+          return res.status(400).json({ error: "Ride already accepted by another driver" });
+        }
+        newStatus = "accepted";
+        updateField = { driverId, status: newStatus };
+      } else if (carCategoryId === driverCarCategoryId) {
+        // Check if carDriverId is already set
+        if (ride.carDriverId && ride.carDriverId !== null) {
+          return res.status(400).json({ error: "Ride already accepted by another driver" });
+        }
+        newStatus = "accepted";
+        updateField = { carDriverId: driverId, status: newStatus };
+      } else {
+        return res.status(400).json({ error: "Driver's category does not match any ride category" });
+      }
     }
+
+    // Update and emit ride details
+    await updateAndEmitRide(updateField, "ride_request_accepted");
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
+
 
 // Fetch all ride requests by driver id with status of completed or canceled
 exports.getClosedRideRequestsByDriver = async (req, res) => {
@@ -837,10 +886,26 @@ exports.getClosedRideRequestsByUser = async (req, res) => {
 //Fetch last ride request by driver id with status of ongoing
 exports.getOnGoingRideRequestByDriver = async (req, res) => {
   try {
+    // Determine the fare logic based on driver car category
+    const driver = await Driver.findById(req.params.id);
+    if (!driver) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
     const rideRequest = await RideRequest.findOne({
-      driverId: req.params.id,
-      status: "ongoing",
+      $or: [
+        // Match carDriverId with accepted or car_accepted statuses
+        {
+          carDriverId: req.params.id,
+          status: { $in: ["accepted", "car_accepted"] },
+        },
+        // Match driverId with accepted or driver_accepted statuses
+        {
+          driverId: req.params.id,
+          status: { $in: ["accepted", "driver_accepted"] },
+        },
+      ],
     });
+
     if (!rideRequest)
       return res.status(404).json({ error: "RideRequest not found" });
 
@@ -866,11 +931,7 @@ exports.getOnGoingRideRequestByDriver = async (req, res) => {
       })
     );
 
-    // Determine the fare logic based on driver car category
-    const driver = await Driver.findById(req.params.id);
-    if (!driver) {
-      throw new Error("Driver not found");
-    }
+
 
     let totalFare = 0;
 

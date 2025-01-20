@@ -279,26 +279,46 @@ exports.updateDriverLocation = async (req, res, io) => {
       address: "Current Address",
     };
     const rideRequest = await RideRequest.findOne({
-      user: req.params.id,
-      status: "ongoing",
+      $or: [
+        { driverId: req.params.id },
+        { carDriverId: req.params.id }
+      ],
+      status: {
+        $in: ["accepted", "driver_accepted", "car_accepted"],
+      }
     });
+
 
     if (rideRequest) {
       // Emit to driver if driverId is not null
-      if (rideRequest.driverId) {
+      if (rideRequest.driverId && rideRequest.driverId.toString() === req.params.id) {
         io.emit(
           "driver_location_update_" + rideRequest.driverId,
           JSON.stringify(location)
         );
+        if (rideRequest.user) {
+          io.emit(
+            "driver_location_update_" + rideRequest.user,
+            JSON.stringify(location)
+          );
+        }
+
       }
 
-      // Emit to user if user is not null
-      if (rideRequest.user) {
+      if (rideRequest.carDriverId && rideRequest.carDriverId.toString() === req.params.id) {
         io.emit(
-          "driver_location_update_" + rideRequest.user,
+          "car_driver_location_update_" + rideRequest.carDriverId,
           JSON.stringify(location)
         );
+        if (rideRequest.user) {
+          io.emit(
+            "car_driver_location_update_" + rideRequest.user,
+            JSON.stringify(location)
+          );
+        }
       }
+
+
     }
     res.json(location);
   } catch (error) {
