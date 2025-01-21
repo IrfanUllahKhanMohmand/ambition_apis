@@ -494,7 +494,11 @@ exports.getAllPendingRideRequests = async (req, res) => {
 exports.getAllOngoingRideRequests = async (req, res) => {
   try {
     // Fetch all ride requests as plain objects
-    const rideRequests = await RideRequest.find({ status: "ongoing" }).lean();
+    const rideRequests = await RideRequest.find({
+      status: {
+        $in: ["accepted", "driver_accepted", "car_accepted"]
+      },
+    }).lean();
 
     const processedRideRequests = await Promise.all(
       rideRequests.map(async (ride) => {
@@ -565,7 +569,7 @@ exports.getRideStats = async (req, res) => {
       status: "canceled",
     });
     const totalOngoingRides = await RideRequest.countDocuments({
-      status: "ongoing",
+      status: { $in: ["accepted", "driver_accepted", "car_accepted"] },
     });
     const completedRides = await RideRequest.find({
       status: "completed",
