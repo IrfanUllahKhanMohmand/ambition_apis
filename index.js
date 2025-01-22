@@ -4,6 +4,7 @@ const connectDB = require("./config/db");
 require("dotenv").config();
 const { createServer } = require("http");
 const { Server } = require("socket.io");
+const bodyParser = require("body-parser");
 
 const userRoutes = require("./routes/userRoutes");
 const driverRoutes = require("./routes//driverRoutes");
@@ -13,6 +14,7 @@ const rideRequestRoutes = require("./routes/rideRequestRoutes");
 const vehicleRoutes = require("./routes/vehicleRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const repeatJobRoutes = require("./routes/repeatJobRoutes");
+const stripeRoutes = require("./routes/stripeRoutes");
 
 const adminRoutes = require("./routes/adminRoutes");
 
@@ -21,6 +23,10 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+app.use((req, res, next) => {
+  bodyParser.json()(req, res, next);
+});
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -64,6 +70,7 @@ app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/chat", chatRoutes(io));
 app.use("/api/admins", adminRoutes);
 app.use("/api/repeat-jobs", repeatJobRoutes);
+app.use("/api/stripe", stripeRoutes);
 
 app.get("/api/sendSocketEvent", (req, res) => {
   io.emit("event", { message: "Hello from server!" });
