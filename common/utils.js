@@ -31,10 +31,9 @@ const getDistance = (
 const getEstimatedFare = async (distance, vehicleCategoryId) => {
   try {
     const vehicleCategory = await VehicleCategory.findById(vehicleCategoryId);
-    const baseFare = vehicleCategory.baseFare;
     const distanceFare = vehicleCategory.distanceFare;
     const distanceInKm = parseFloat(distance.split(" ")[0]);
-    const estimatedFare = baseFare + distanceFare * distanceInKm;
+    const estimatedFare = distanceFare * distanceInKm;
     return estimatedFare;
   } catch (error) {
     return error;

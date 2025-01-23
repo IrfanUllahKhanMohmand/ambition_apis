@@ -6,7 +6,6 @@ const jwt = require("jsonwebtoken");
 exports.createAdmin = async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    console.log(req.fileUrls);
 
     if (!req.fileUrls?.profile) {
       return res.status(400).json({ error: "Please upload profile picture" });

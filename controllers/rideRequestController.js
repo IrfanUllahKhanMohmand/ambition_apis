@@ -11,6 +11,23 @@ const {
   getPolyline,
 } = require("../common/utils");
 
+
+
+const categorizeCustomItem = (customItem, initialItems) => {
+  for (let item of initialItems) {
+    if (
+      customItem.length <= item.length &&
+      customItem.width <= item.width &&
+      customItem.height <= item.height &&
+      customItem.weight <= item.weight
+    ) {
+      return item.name; // Return the category name (e.g., "Extra Small")
+    }
+  }
+  return null; // If no category matches
+};
+
+
 // Create RideRequest
 exports.createRideRequest = async (req, res, io) => {
   try {
@@ -39,6 +56,7 @@ exports.createRideRequest = async (req, res, io) => {
       peopleTaggingAlong,
       specialRequirements,
       passengersCount,
+      transactionId,
     } = req.body;
 
     const polylinePoints = await getPolyline(
@@ -55,10 +73,38 @@ exports.createRideRequest = async (req, res, io) => {
     let fare = {
       vehicleBaseFare: 0,
       vehicleDistanceFare: 0,
+      vehicleItemBasedPricing: 0,
       carBaseFare: 0,
       carDistanceFare: 0,
       total: 0,
     };
+
+    const itemCounts = {
+      "Extra Small": 0,
+      Small: 0,
+      Medium: 0,
+      "Medium +": 0,
+      Large: 0,
+      "Extra Large": 0,
+    };
+
+    customItems.forEach((customItem) => {
+      const quantity = customItem.quantity || 1;
+      // Categorize the custom item
+      const category = categorizeCustomItem(customItem, [
+        { name: "Extra Small", length: 0.3, width: 0.3, height: 0.3, weight: 20 },
+        { name: "Small", length: 0.5, width: 0.5, height: 0.5, weight: 25 },
+        { name: "Medium", length: 1.2, width: 1.2, height: 1.2, weight: 35 },
+        { name: "Medium +", length: 1.9, width: 1.9, height: 1.9, weight: 100 },
+        { name: "Large", length: 2.5, width: 2.5, height: 2.5, weight: 150 },
+        { name: "Extra Large", length: 2.6, width: 2.6, height: 2.6, weight: 151 },
+      ]);
+
+      if (category) {
+        itemCounts[category] += quantity;
+      }
+    });
+
 
     // Fetch vehicleCategory and carCategory details
     const vehicle = vehicleCategory
@@ -73,6 +119,10 @@ exports.createRideRequest = async (req, res, io) => {
       fare.vehicleDistanceFare = (vehicle.distanceFare || 0) * distance;
       if (isEventJob) {
         fare.vehicleBaseFare = vehicle.baseFare || 0;
+        fare.vehicleItemBasedPricing = Object.keys(itemCounts).reduce(
+          (acc, itemType) => acc + (itemCounts[itemType] * (vehicle.pricing[itemType] || 0)),
+          0
+        );
       }
     }
 
@@ -86,8 +136,11 @@ exports.createRideRequest = async (req, res, io) => {
     fare.total =
       fare.vehicleBaseFare +
       fare.vehicleDistanceFare +
+      fare.vehicleItemBasedPricing +
       fare.carBaseFare +
       fare.carDistanceFare;
+
+
 
     const rideRequest = new RideRequest({
       user,
@@ -122,6 +175,7 @@ exports.createRideRequest = async (req, res, io) => {
         specialRequirements,
       },
       passengersCount,
+      transactionId,
     });
 
     await rideRequest.save();
@@ -373,7 +427,7 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
 
         if (vehicleCategoryId === driverCarCategoryId) {
           // Use vehicle fare calculation
-          totalFare = ride.fare.vehicleBaseFare + ride.fare.vehicleDistanceFare;
+          totalFare = ride.fare.vehicleBaseFare + ride.fare.vehicleDistanceFare + ride.fare.vehicleItemBasedPricing;
         } else if (carCategoryId === driverCarCategoryId) {
           // Use car fare calculation
           totalFare = ride.fare.carBaseFare + ride.fare.carDistanceFare;
@@ -463,7 +517,6 @@ exports.getAllPendingRideRequests = async (req, res) => {
       return res.json([]);
     }
 
-    console.log("Ride Requests:", rideRequests); // Log fetched documents
 
     const processedRideRequests = await Promise.all(
       rideRequests.map(async (ride) => {
@@ -830,7 +883,7 @@ exports.getClosedRideRequestsByDriver = async (req, res) => {
 
         if (vehicleCategoryId === driverCarCategoryId) {
           // Use vehicle fare calculation
-          totalFare = ride.fare.vehicleBaseFare + ride.fare.vehicleDistanceFare;
+          totalFare = ride.fare.vehicleBaseFare + ride.fare.vehicleDistanceFare + ride.fare.vehicleItemBasedPricing;
         } else if (carCategoryId === driverCarCategoryId) {
           // Use car fare calculation
           totalFare = ride.fare.carBaseFare + ride.fare.carDistanceFare;
@@ -947,7 +1000,7 @@ exports.getOnGoingRideRequestByDriver = async (req, res) => {
     if (vehicleCategoryId === driverCarCategoryId) {
       // Use vehicle fare calculation
       totalFare =
-        rideRequest.fare.vehicleBaseFare + rideRequest.fare.vehicleDistanceFare;
+        rideRequest.fare.vehicleBaseFare + rideRequest.fare.vehicleDistanceFare + rideRequest.fare.vehicleItemBasedPricing;
     } else if (carCategoryId === driverCarCategoryId) {
       // Use car fare calculation
       totalFare =

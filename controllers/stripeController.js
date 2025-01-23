@@ -43,6 +43,7 @@ exports.createPaymentIntent = async (req, res) => {
         paymentIntent: paymentIntent.client_secret,
         ephemeralKey: ephemeralKey.secret,
         customer: customer.id,
+        transactionId: paymentIntent.id
     });
 }
 

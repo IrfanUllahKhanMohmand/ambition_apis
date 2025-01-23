@@ -59,6 +59,7 @@ const rideRequestSchema = new mongoose.Schema({
   fare: {
     vehicleBaseFare: { type: Number, default: 0 },
     vehicleDistanceFare: { type: Number, default: 0 },
+    vehicleItemBasedPricing: { type: Number, default: 0 },
     carBaseFare: { type: Number, default: 0 },
     carDistanceFare: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
@@ -87,6 +88,9 @@ const rideRequestSchema = new mongoose.Schema({
     specialRequirements: String,
   },
   passengersCount: { type: Number, default: 0 },
+
+  transactionId: { type: String, default: "" },
+
   //status differ when isRideAndMove is true. Then it includes for both vehicle and car
   status: {
     type: String,
