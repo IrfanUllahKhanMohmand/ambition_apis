@@ -366,6 +366,32 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
       return res.status(404).json({ error: "Driver not found" });
     }
 
+    //Fetch the earnings of the driver by going through the ride requests where the driver is either driver or car driver and the status is completed
+    const completedRides = await RideRequest.find({
+      $or: [
+        { driverId: req.params.id, status: "completed" },
+        { carDriverId: req.params.id, status: "completed" },
+      ],
+    });
+
+    //if req.params.id matches the driverId then earning is ride.fare.vehicleBaseFare + ride.fare.vehicleDistanceFare + ride.fare.vehicleItemBasedPricing
+    //if req.params.id matches the carDriverId then earning is ride.fare.carBaseFare + ride.fare.carDistanceFare
+    const totalEarnings = completedRides.reduce((acc, ride) => {
+      if (ride.driverId && ride.driverId.toString() === req.params.id) {
+        return acc + ride.fare.vehicleBaseFare + ride.fare.vehicleDistanceFare + ride.fare.vehicleItemBasedPricing;
+      } else if (ride.carDriverId && ride.carDriverId.toString() === req.params.id) {
+        return acc + ride.fare.carBaseFare + ride.fare.carDistanceFare;
+      }
+      return acc;
+    }, 0);
+
+    const totalCompletedRides = completedRides.length;
+
+
+
+
+
+
     // Fetch the RideRequests that match either vehicleCategory or carCategory
     const rideRequests = await RideRequest.find({
       $or: [
@@ -394,7 +420,13 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
 
 
     if (!rideRequests || rideRequests.length === 0) {
-      return res.json([]);
+      return res.json(
+        {
+          totalEarnings,
+          totalCompletedRides,
+          rideRequests: []
+        }
+      );
     }
 
     // Convert rideRequests to plain objects
@@ -422,7 +454,8 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
 
         // Convert ObjectIds to strings for comparison
         const vehicleCategoryId = ride.vehicleCategory.toString();
-        const carCategoryId = ride.carCategory.toString();
+        //carCategory can be null
+        const carCategoryId = ride.carCategory ? ride.carCategory.toString() : null;
         const driverCarCategoryId = driver.car.category.toString();
 
         if (vehicleCategoryId === driverCarCategoryId) {
@@ -440,8 +473,16 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
       })
     );
 
+
+
     // Send the updated rideRequest object
-    res.json(processedRideRequests);
+    res.json(
+      {
+        totalEarnings,
+        totalCompletedRides,
+        rideRequests: processedRideRequests
+      }
+    );
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -766,7 +807,8 @@ exports.updateDriverId = async (req, res, io) => {
 
     // Convert ObjectIds to strings for comparison
     const vehicleCategoryId = ride.vehicleCategory.toString();
-    const carCategoryId = ride.carCategory.toString();
+    //carCategory can be null
+    const carCategoryId = ride.carCategory ? ride.carCategory.toString() : null;
     const driverCarCategoryId = driver.car.category.toString();
 
     // Helper function to update and emit ride details
@@ -878,7 +920,8 @@ exports.getClosedRideRequestsByDriver = async (req, res) => {
 
         // Convert ObjectIds to strings for comparison
         const vehicleCategoryId = ride.vehicleCategory.toString();
-        const carCategoryId = ride.carCategory.toString();
+        //carCategory can be null
+        const carCategoryId = ride.carCategory ? ride.carCategory.toString() : null;
         const driverCarCategoryId = driver.car.category.toString();
 
         if (vehicleCategoryId === driverCarCategoryId) {
@@ -994,7 +1037,8 @@ exports.getOnGoingRideRequestByDriver = async (req, res) => {
 
     // Convert ObjectIds to strings for comparison
     const vehicleCategoryId = rideRequest.vehicleCategory.toString();
-    const carCategoryId = rideRequest.carCategory.toString();
+    //carCategory can be null
+    const carCategoryId = rideRequest.carCategory ? rideRequest.carCategory.toString() : null;
     const driverCarCategoryId = driver.car.category.toString();
 
     if (vehicleCategoryId === driverCarCategoryId) {
