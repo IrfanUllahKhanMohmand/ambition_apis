@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
+
 const serviceAccount = {
   "type": "service_account",
   "project_id": "ambition-automation",
@@ -17,6 +18,7 @@ const serviceAccount = {
   "client_x509_cert_url": process.env.GOOGLE_CLIENT_X509_CERT_URL,
   "universe_domain": "googleapis.com"
 };
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   storageBucket: "gs://ambition-automation.appspot.com",

@@ -669,7 +669,7 @@ exports.getRideStats = async (req, res) => {
       status: "completed",
     });
     const totalRevenue = completedRides.reduce((acc, ride) => {
-      return acc + ride.fare;
+      return acc + ride.fare.total;
     }, 0);
     res.json({
       totalRides,

@@ -17,6 +17,7 @@ const repeatJobRoutes = require("./routes/repeatJobRoutes");
 const stripeRoutes = require("./routes/stripeRoutes");
 
 const adminRoutes = require("./routes/adminRoutes");
+const instructionRoutes = require("./routes/instructionRoutes");
 
 
 const app = express();
@@ -71,6 +72,7 @@ app.use("/api/chat", chatRoutes(io));
 app.use("/api/admins", adminRoutes);
 app.use("/api/repeat-jobs", repeatJobRoutes);
 app.use("/api/stripe", stripeRoutes);
+app.use("/api/instructions", instructionRoutes);
 
 app.get("/api/sendSocketEvent", (req, res) => {
   io.emit("event", { message: "Hello from server!" });
