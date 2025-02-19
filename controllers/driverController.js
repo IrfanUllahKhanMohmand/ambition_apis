@@ -4,6 +4,16 @@ const VehicleCategory = require("../models/VehicleCategory");
 const bcrypt = require("bcryptjs");
 const { validationResult } = require("express-validator");
 const jwt = require("jsonwebtoken");
+const twilio = require("twilio");
+require("dotenv").config();
+
+
+// Twilio Client
+const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+// Generate OTP Function
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
 
 // Register a Driver
 exports.createDriver = async (req, res) => {
@@ -15,27 +25,53 @@ exports.createDriver = async (req, res) => {
       phone,
       latitude,
       longitude,
+      licenseCheckCode,
       carMake,
       carModel,
       carYear,
       carPlate,
       carColor,
       vehicleCategory,
+      accountName,
+      accountNumber,
+      accountSortCode,
     } = req.body;
     if (!req.fileUrls) {
       return res.status(400).json({ error: "Please upload all files" });
     }
 
-    let driver = await Driver.findOne({ email });
+    let driver = await Driver.findOne({ $or: [{ email }, { phone }] });
     if (driver) {
-      return res.status(400).json({ error: "Driver already exists" });
+      return res.status(400).json({ error: "Driver already exists with the email or phone number" });
     }
+
+
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    // Send OTP via Twilio and handle errors
+    try {
+      await twilioClient.messages.create({
+        body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: phone
+      });
+    } catch (otpError) {
+      return res.status(500).json({ error: otpError.message });
+    }
+
 
     driver = new Driver({
       name,
       email,
       password,
       phone,
+      otp,
+      otpExpires,
+      licenseCheckCode: licenseCheckCode ? licenseCheckCode : "",
+      accountName: accountName,
+      accountNumber: accountNumber,
+      accountSortCode: accountSortCode,
       car: {
         make: carMake,
         model: carModel,
@@ -46,10 +82,16 @@ exports.createDriver = async (req, res) => {
       },
       location: { type: "Point", coordinates: [latitude, longitude] },
       profile: req.fileUrls.profile,
-      nationalIdFront: req.fileUrls.nationalIdFront,
-      nationalIdBack: req.fileUrls.nationalIdBack,
       driverLicenseFront: req.fileUrls.driverLicenseFront,
       driverLicenseBack: req.fileUrls.driverLicenseBack,
+      licensePlatePicture: req.fileUrls.licensePlatePicture,
+      vehicleFrontPicture: req.fileUrls.vehicleFrontPicture,
+      vehicleBackPicture: req.fileUrls.vehicleBackPicture,
+      vehicleLeftPicture: req.fileUrls.vehicleLeftPicture,
+      vehicleRightPicture: req.fileUrls.vehicleRightPicture,
+      vehicleInsurancePicture: req.fileUrls.vehicleInsurancePicture,
+      publicLiabilityInsurancePicture: req.fileUrls.publicLiabilityInsurancePicture,
+      goodsInTransitInsurancePicture: req.fileUrls.goodsInTransitInsurancePicture,
     });
     driver.password = await bcrypt.hash(password, 10);
     await driver.save();
@@ -61,31 +103,76 @@ exports.createDriver = async (req, res) => {
     res.status(201).json({
       message: "Driver registered successfully",
       token,
-      driver: {
-        id: driver._id,
-        name: driver.name,
-        email: driver.email,
-        phone: driver.phone,
-        car: driver.car,
-        location: driver.location,
-        profile: driver.profile,
-        nationalIdFront: driver.nationalIdFront,
-        nationalIdBack: driver.nationalIdBack,
-        driverLicenseFront: driver.driverLicenseFront,
-        driverLicenseBack: driver.driverLicenseBack,
-      },
+      driver,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
+
+//resend OTP
+exports.resendOTP = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    const driver = await
+      Driver
+        .findOne({ phone });
+
+    if (!driver) {
+      return res.status(400).json({ message: "Driver not found" });
+    }
+
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    await Driver
+      .updateOne({ phone }, { otp, otpExpires }, { upsert: true });
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Verify OTP Function
+exports.verifyOTP = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    const driver = await Driver
+      .findOne({ phone, otp, otpExpires: { $gt: new Date() } });
+
+    if (!driver) return res.status(400).json({ message: "Invalid OTP" });
+    res.json({
+      message: "OTP verified successfully",
+      driver
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 // Check if email exists middleware
 exports.checkEmail = async (req, res, next) => {
   try {
-    const driver = await Driver.findOne({ email: req.body.email });
+    const driver = await Driver.findOne({
+      $or: [{
+        email: req.body.email
+      }, {
+        phone: req.body.phone
+      }]
+    });
     if (driver) {
-      return res.status(400).json({ error: "Driver already exists" });
+      return res.status(400).json({ error: "Driver already exists with the email or phone number" });
     }
     next();
   } catch (error) {
@@ -171,10 +258,16 @@ exports.updateDriver = async (req, res) => {
   try {
     const {
       profile,
-      nationalIdFront,
-      nationalIdBack,
       driverLicenseFront,
       driverLicenseBack,
+      licensePlatePicture,
+      vehicleFrontPicture,
+      vehicleBackPicture,
+      vehicleLeftPicture,
+      vehicleRightPicture,
+      vehicleInsurancePicture,
+      publicLiabilityInsurancePicture,
+      goodsInTransitInsurancePicture,
     } = req.fileUrls || {};
 
     // Initialize an object to hold the updates
@@ -182,11 +275,33 @@ exports.updateDriver = async (req, res) => {
 
     // Add file URLs to updateFields if they exist
     if (profile) updateFields.profile = profile;
-    if (nationalIdFront) updateFields.nationalIdFront = nationalIdFront;
-    if (nationalIdBack) updateFields.nationalIdBack = nationalIdBack;
     if (driverLicenseFront)
       updateFields.driverLicenseFront = driverLicenseFront;
     if (driverLicenseBack) updateFields.driverLicenseBack = driverLicenseBack;
+    if (licensePlatePicture)
+      updateFields.licensePlatePicture = licensePlatePicture;
+    if (vehicleFrontPicture)
+      updateFields.vehicleFrontPicture = vehicleFrontPicture;
+    if (vehicleBackPicture)
+      updateFields.vehicleBackPicture = vehicleBackPicture;
+    if (vehicleLeftPicture)
+      updateFields.vehicleLeftPicture = vehicleLeftPicture;
+    if (vehicleRightPicture)
+      updateFields.vehicleRightPicture = vehicleRightPicture;
+    if (vehicleInsurancePicture)
+      updateFields.vehicleInsurancePicture = vehicleInsurancePicture;
+    if (publicLiabilityInsurancePicture)
+      updateFields.publicLiabilityInsurancePicture = publicLiabilityInsurancePicture;
+    if (goodsInTransitInsurancePicture)
+      updateFields.goodsInTransitInsurancePicture = goodsInTransitInsurancePicture;
+
+
+    if (req.body.licenseCheckCode) updateFields.licenseCheckCode = req.body.licenseCheckCode;
+    if (req.body.accountSortCode) updateFields.accountSortCode = req.body.accountSortCode;
+    if (req.body.accountName) updateFields.accountName = req.body.accountName;
+    if (req.body.accountNumber) updateFields.accountNumber = req.body.accountNumber;
+
+
 
     // Check for vehicle category and add it to updateFields
     if (req.body.vehicleCategory) {
@@ -198,6 +313,7 @@ exports.updateDriver = async (req, res) => {
       }
       updateFields.vehicleCategory = vehicleCategory._id;
     }
+
 
     // Fetch the existing driver document
     const driver = await Driver.findById(req.params.id);
@@ -254,6 +370,17 @@ exports.updateDriver = async (req, res) => {
 exports.deleteDriver = async (req, res) => {
   try {
     const driver = await Driver.findByIdAndDelete(req.params.id);
+    if (!driver) return res.status(404).json({ error: "Driver not found" });
+    res.json({ message: "Driver deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//Delete driver using phone number
+exports.deleteDriverByPhone = async (req, res) => {
+  try {
+    const driver = await Driver.findOneAndDelete({ phone: req.params.phone });
     if (!driver) return res.status(404).json({ error: "Driver not found" });
     res.json({ message: "Driver deleted successfully" });
   } catch (error) {

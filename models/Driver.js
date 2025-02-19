@@ -4,12 +4,27 @@ const driverSchema = new mongoose.Schema(
   {
     name: String,
     email: { type: String, unique: true },
-    phone: String,
+    phone: { type: String, unique: true },
+    otp: { type: String },
+    otpExpires: { type: Date },
     password: String,
-    nationalIdFront: String,
-    nationalIdBack: String,
     driverLicenseFront: String,
     driverLicenseBack: String,
+    licenseCheckCode: { type: String, default: "" },
+    licensePlatePicture: { type: String, default: "" },
+    vehicleFrontPicture: { type: String, default: "" },
+    vehicleBackPicture: { type: String, default: "" },
+    vehicleLeftPicture: { type: String, default: "" },
+    vehicleRightPicture: { type: String, default: "" },
+    vehicleInsurancePicture: { type: String, default: "" },
+    publicLiabilityInsurancePicture: { type: String, default: "" },
+    goodsInTransitInsurancePicture: { type: String, default: "" },
+
+    //Bank Details
+    accountName: { type: String, default: "" },
+    accountNumber: { type: String, default: "" },
+    accountSortCode: { type: String, default: "" },
+
     profile: String,
     car: {
       category: {

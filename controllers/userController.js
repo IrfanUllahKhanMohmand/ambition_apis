@@ -2,6 +2,16 @@ const User = require("../models/User");
 const RideRequest = require("../models/RideRequest");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const twilio = require("twilio");
+require("dotenv").config();
+
+
+// Twilio Client
+const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+// Generate OTP Function
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
 
 // Register User
 exports.createUser = async (req, res) => {
@@ -14,26 +24,44 @@ exports.createUser = async (req, res) => {
 
     const profile = req.fileUrls.profile;
 
-    let user = await User.findOne({ email });
+    // Check if user already exists with the email or phone number
+    let user = await User.findOne({ $or: [{ email }, { phone }] });
     if (user) {
-      return res.status(400).json({ error: "User already exists" });
+      return res.status(400).json({ error: "User already exists with this email or phone number" });
     }
 
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    // Send OTP via Twilio and handle errors
+    try {
+      await twilioClient.messages.create({
+        body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: phone
+      });
+    } catch (otpError) {
+      return res.status(500).json({ error: otpError.message });
+    }
+
+    // Create and save user
     user = new User({
       name,
       email,
-      password,
+      password: await bcrypt.hash(password, 10), // Hash password before saving
       phone,
+      otp,
+      otpExpires,
       profile,
       location: { type: "Point", coordinates: [latitude, longitude] },
     });
-    user.password = await bcrypt.hash(password, 10);
+
     await user.save();
 
+    // Generate JWT Token
     const payload = { userId: user._id };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "10h",
-    });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "10h" });
+
     res.status(201).json({
       token,
       user: {
@@ -50,12 +78,76 @@ exports.createUser = async (req, res) => {
   }
 };
 
+//resend OTP
+exports.resendOTP = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    const user = await
+      User
+        .findOne({ phone });
+
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    await User
+      .updateOne({ phone }, { otp, otpExpires }, { upsert: true });
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Verify OTP Function
+exports.verifyOTP = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    const user = await User
+      .findOne({ phone, otp, otpExpires: { $gt: new Date() } });
+
+    if (!user) return res.status(400).json({ message: "Invalid OTP" });
+    res.json({
+      message: "OTP verified successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        profile: user.profile,
+        phone: user.phone,
+        location: user.location,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+
 // check if email exists middleware
 exports.checkEmail = async (req, res, next) => {
   try {
-    const user = await User.findOne({ email: req.body.email });
+    const user = await User.findOne({
+      $or: [{
+        email: req.body.email
+      }, {
+        phone: req.body.phone
+      }]
+    });
     if (user) {
-      return res.status(400).json({ error: "User already exists" });
+      return res.status(400).json({ error: "User already exists with this email or phone number" });
     }
     next();
   } catch (error) {
@@ -218,3 +310,15 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+//Delete by phone number
+exports.deleteUserByPhone = async (req, res) => {
+  try {
+    const user = await User.findOneAndDelete({ phone: req.params.phone });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ message: "User deleted successfully" });
+  }
+  catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}

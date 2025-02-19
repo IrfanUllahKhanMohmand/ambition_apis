@@ -18,6 +18,9 @@ const {
   checkEmail,
   getUserLocation,
   updateUserLocation,
+  resendOTP,
+  verifyOTP,
+  deleteUserByPhone,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 
@@ -52,6 +55,12 @@ module.exports = (io) => {
     updateUser
   );
   router.delete("/:id", deleteUser);
+
+  router.delete("/byPhone/:phone", deleteUserByPhone);
+
+  router.post("/resend-otp", resendOTP);
+
+  router.post("/verify-otp", verifyOTP);
 
   return router;
 };

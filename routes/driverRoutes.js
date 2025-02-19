@@ -23,6 +23,9 @@ const {
   getDriverStatus,
   checkEmail,
   loginDriver,
+  resendOTP,
+  verifyOTP,
+  deleteDriverByPhone,
 } = require("../controllers/driverController");
 const auth = require("../middleware/auth");
 
@@ -33,10 +36,16 @@ module.exports = (io) => {
 
     upload.fields([
       { name: "profile", maxCount: 1 },
-      { name: "nationalIdFront", maxCount: 1 },
-      { name: "nationalIdBack", maxCount: 1 },
       { name: "driverLicenseFront", maxCount: 1 },
       { name: "driverLicenseBack", maxCount: 1 },
+      { name: "licensePlatePicture", maxCount: 1 },
+      { name: "vehicleFrontPicture", maxCount: 1 },
+      { name: "vehicleBackPicture", maxCount: 1 },
+      { name: "vehicleLeftPicture", maxCount: 1 },
+      { name: "vehicleRightPicture", maxCount: 1 },
+      { name: "vehicleInsurancePicture", maxCount: 1 },
+      { name: "publicLiabilityInsurancePicture", maxCount: 1 },
+      { name: "goodsInTransitInsurancePicture", maxCount: 1 },
     ]),
     [
       [
@@ -52,6 +61,7 @@ module.exports = (io) => {
 
         body("latitude", "Latitude is required").not().isEmpty(),
         body("longitude", "Longitude is required").not().isEmpty(),
+
       ],
     ],
     (req, res, next) => {
@@ -77,15 +87,25 @@ module.exports = (io) => {
 
     upload.fields([
       { name: "profile", maxCount: 1 },
-      { name: "nationalIdFront", maxCount: 1 },
-      { name: "nationalIdBack", maxCount: 1 },
       { name: "driverLicenseFront", maxCount: 1 },
       { name: "driverLicenseBack", maxCount: 1 },
+      { name: "licensePlatePicture", maxCount: 1 },
+      { name: "vehicleFrontPicture", maxCount: 1 },
+      { name: "vehicleBackPicture", maxCount: 1 },
+      { name: "vehicleLeftPicture", maxCount: 1 },
+      { name: "vehicleRightPicture", maxCount: 1 },
+      { name: "vehicleInsurancePicture", maxCount: 1 },
+      { name: "publicLiabilityInsurancePicture", maxCount: 1 },
+      { name: "goodsInTransitInsurancePicture", maxCount: 1 },
     ]),
     uploadToFirebase,
     updateDriver
   );
   router.delete("/:id", deleteDriver);
+
+  // delete driver by phone
+  router.delete("/phone/:phone", deleteDriverByPhone);
+
 
   // update driver location
   router.put("/location/:id", (req, res) => updateDriverLocation(req, res, io));
@@ -109,5 +129,11 @@ module.exports = (io) => {
   // get driver status
 
   router.get("/status/:id", getDriverStatus);
+
+  // resend OTP
+  router.post("/resend-otp", resendOTP);
+
+  // verify OTP
+  router.post("/verify-otp", verifyOTP);
   return router;
 };
