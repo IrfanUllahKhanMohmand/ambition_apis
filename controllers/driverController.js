@@ -296,6 +296,8 @@ exports.updateDriver = async (req, res) => {
       updateFields.goodsInTransitInsurancePicture = goodsInTransitInsurancePicture;
 
 
+    // Add other fields to updateFields if they exist
+    if (req.body.name) updateFields.name = req.body.name;
     if (req.body.licenseCheckCode) updateFields.licenseCheckCode = req.body.licenseCheckCode;
     if (req.body.accountSortCode) updateFields.accountSortCode = req.body.accountSortCode;
     if (req.body.accountName) updateFields.accountName = req.body.accountName;
