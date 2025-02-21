@@ -8,6 +8,7 @@ const {
   updateVehicle,
   deleteVehicle,
   getVehiclesByCategory,
+  getVehiclesAdmin,
 } = require("../controllers/vehicleController");
 
 // Create a Vehicle
@@ -15,6 +16,9 @@ router.post("/", createVehicle);
 
 // Get all Vehicles
 router.get("/", getVehicles);
+
+//Admin Get all Vehicles
+router.get("/admin", getVehiclesAdmin);
 
 // Get a Vehicle by ID
 router.get("/:id", getVehicle);

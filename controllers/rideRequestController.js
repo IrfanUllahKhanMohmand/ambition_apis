@@ -6,8 +6,8 @@ const VehicleCategory = require("../models/VehicleCategory");
 const PolyLinePoints = require("../models/PolyLinePoints");
 const {
   getDistance,
-  getEstimatedFare,
   getEstimatedTime,
+  getEstimatedTimeFare,
   getPolyline,
 } = require("../common/utils");
 
@@ -48,6 +48,7 @@ exports.createRideRequest = async (req, res, io) => {
       dropoffLocationName,
       dropoffLocationAddress,
       distance,
+      time,
       items,
       customItems,
       pickupFloor,
@@ -57,6 +58,12 @@ exports.createRideRequest = async (req, res, io) => {
       specialRequirements,
       passengersCount,
       transactionId,
+      vehicleInitialServiceFee,
+      vehicleBaseFare,
+      vehicleTimeFare,
+      carInitialServiceFee,
+      carBaseFare,
+      carTimeFare,
     } = req.body;
 
     const polylinePoints = await getPolyline(
@@ -71,11 +78,13 @@ exports.createRideRequest = async (req, res, io) => {
     await polyLinePoints.save();
 
     let fare = {
+      vehicleInitialServiceFee: 0,
       vehicleBaseFare: 0,
-      vehicleDistanceFare: 0,
+      vehicleTimeFare: 0,
       vehicleItemBasedPricing: 0,
+      carInitialServiceFee: 0,
       carBaseFare: 0,
-      carDistanceFare: 0,
+      carTimeFare: 0,
       total: 0,
     };
 
@@ -116,9 +125,10 @@ exports.createRideRequest = async (req, res, io) => {
 
     // Calculate fare based on isEventJob
     if (vehicle) {
-      fare.vehicleDistanceFare = (vehicle.distanceFare || 0) * distance;
+      fare.vehicleTimeFare = vehicleTimeFare || 0;
       if (isEventJob) {
-        fare.vehicleBaseFare = vehicle.baseFare || 0;
+        fare.vehicleInitialServiceFee = vehicleInitialServiceFee || 0;
+        fare.vehicleBaseFare = vehicleBaseFare || 0;
         fare.vehicleItemBasedPricing = Object.keys(itemCounts).reduce(
           (acc, itemType) => acc + (itemCounts[itemType] * (vehicle.pricing[itemType] || 0)),
           0
@@ -127,18 +137,21 @@ exports.createRideRequest = async (req, res, io) => {
     }
 
     if (car) {
-      fare.carDistanceFare = (car.distanceFare || 0) * distance;
+      fare.carTimeFare = carTimeFare || 0;
       if (isEventJob) {
-        fare.carBaseFare = car.baseFare || 0;
+        fare.carInitialServiceFee = carInitialServiceFee || 0;
+        fare.carBaseFare = carBaseFare || 0;
       }
     }
 
     fare.total =
+      fare.vehicleInitialServiceFee +
       fare.vehicleBaseFare +
-      fare.vehicleDistanceFare +
+      fare.vehicleTimeFare +
       fare.vehicleItemBasedPricing +
+      fare.carInitialServiceFee +
       fare.carBaseFare +
-      fare.carDistanceFare;
+      fare.carTimeFare;
 
 
 
@@ -164,6 +177,7 @@ exports.createRideRequest = async (req, res, io) => {
       },
       polylinePoints: polyLinePoints._id,
       distance,
+      time,
       fare,
       items,
       customItems,
@@ -374,13 +388,11 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
       ],
     });
 
-    //if req.params.id matches the driverId then earning is ride.fare.vehicleBaseFare + ride.fare.vehicleDistanceFare + ride.fare.vehicleItemBasedPricing
-    //if req.params.id matches the carDriverId then earning is ride.fare.carBaseFare + ride.fare.carDistanceFare
     const totalEarnings = completedRides.reduce((acc, ride) => {
       if (ride.driverId && ride.driverId.toString() === req.params.id) {
-        return acc + ride.fare.vehicleBaseFare + ride.fare.vehicleDistanceFare + ride.fare.vehicleItemBasedPricing;
+        return acc + ride.fare.vehicleInitialServiceFee + ride.fare.vehicleBaseFare + ride.fare.vehicleTimeFare + ride.fare.vehicleItemBasedPricing;
       } else if (ride.carDriverId && ride.carDriverId.toString() === req.params.id) {
-        return acc + ride.fare.carBaseFare + ride.fare.carDistanceFare;
+        return acc + ride.fare.carInitialServiceFee + ride.fare.carBaseFare + ride.fare.carTimeFare;
       }
       return acc;
     }, 0);
@@ -460,10 +472,10 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
 
         if (vehicleCategoryId === driverCarCategoryId) {
           // Use vehicle fare calculation
-          totalFare = ride.fare.vehicleBaseFare + ride.fare.vehicleDistanceFare + ride.fare.vehicleItemBasedPricing;
+          totalFare = ride.fare.vehicleInitialServiceFee + ride.fare.vehicleBaseFare + ride.fare.vehicleTimeFare + ride.fare.vehicleItemBasedPricing;
         } else if (carCategoryId === driverCarCategoryId) {
           // Use car fare calculation
-          totalFare = ride.fare.carBaseFare + ride.fare.carDistanceFare;
+          totalFare = ride.fare.carInitialServiceFee + ride.fare.carBaseFare + ride.fare.carTimeFare;
         }
 
         // Add total fare to the ride's fare object
@@ -887,9 +899,13 @@ exports.updateDriverId = async (req, res, io) => {
 exports.getClosedRideRequestsByDriver = async (req, res) => {
   try {
     const rideRequests = await RideRequest.find({
-      driverId: req.params.id,
+      $or: [
+        { driverId: req.params.id },
+        { carDriverId: req.params.id }
+      ],
       status: { $in: ["completed", "canceled"] },
     });
+
 
     // Convert rideRequests to a plain object
     const rideRequestObj = rideRequests.map((ride) => ride.toObject());
@@ -926,10 +942,10 @@ exports.getClosedRideRequestsByDriver = async (req, res) => {
 
         if (vehicleCategoryId === driverCarCategoryId) {
           // Use vehicle fare calculation
-          totalFare = ride.fare.vehicleBaseFare + ride.fare.vehicleDistanceFare + ride.fare.vehicleItemBasedPricing;
+          totalFare = ride.fare.vehicleInitialServiceFee + ride.fare.vehicleBaseFare + ride.fare.vehicleTimeFare + ride.fare.vehicleItemBasedPricing;
         } else if (carCategoryId === driverCarCategoryId) {
           // Use car fare calculation
-          totalFare = ride.fare.carBaseFare + ride.fare.carDistanceFare;
+          totalFare = ride.fare.carInitialServiceFee + ride.fare.carBaseFare + ride.fare.carTimeFare;
         }
 
         // Add total fare to the ride's fare object
@@ -1043,12 +1059,12 @@ exports.getOnGoingRideRequestByDriver = async (req, res) => {
 
     if (vehicleCategoryId === driverCarCategoryId) {
       // Use vehicle fare calculation
-      totalFare =
-        rideRequest.fare.vehicleBaseFare + rideRequest.fare.vehicleDistanceFare + rideRequest.fare.vehicleItemBasedPricing;
+      totalFare = rideRequest.fare.vehicleInitialServiceFee +
+        rideRequest.fare.vehicleBaseFare + rideRequest.fare.vehicleTimeFare + rideRequest.fare.vehicleItemBasedPricing;
     } else if (carCategoryId === driverCarCategoryId) {
       // Use car fare calculation
-      totalFare =
-        rideRequest.fare.carBaseFare + rideRequest.fare.carDistanceFare;
+      totalFare = rideRequest.fare.carInitialServiceFee +
+        rideRequest.fare.carBaseFare + rideRequest.fare.carTimeFare;
     }
 
     // Add total fare to the ride's fare object
@@ -1116,11 +1132,35 @@ exports.getEstimatedFare = async (req, res) => {
   }
 };
 
+// Get estimated time fare for a trip
+exports.getEstimatedTimeFare = async (req, res) => {
+  try {
+    const {
+      originLat,
+      originLong,
+      destinationLat,
+      destinationLong,
+      vehicleCategoryId,
+    } = req.body;
+
+    const fare = await getEstimatedTimeFare(
+      originLat,
+      originLong,
+      destinationLat,
+      destinationLong,
+      vehicleCategoryId
+    );
+    res.json({ fare });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 // Get estimated time for a trip
 exports.getEstimatedTime = async (req, res) => {
   try {
-    const { origin, destination } = req.body;
-    const time = await getEstimatedTime(origin, destination);
+    const { originLat, originLong, destinationLat, destinationLong } = req.body;
+    const time = await getEstimatedTime(originLat, originLong, destinationLat, destinationLong);
     res.json({ time });
   } catch (error) {
     res.status(400).json({ error: error.message });

@@ -195,6 +195,39 @@ exports.getDrivers = async (req, res) => {
         const vehicleCategory = await VehicleCategory.findById(
           driver.car.category
         );
+        let vehicleCategoryObj = vehicleCategory.toObject();
+        vehicleCategoryObj.initialServiceFee = vehicleCategoryObj.initialServiceFee.min;
+        vehicleCategoryObj.baseFare = vehicleCategoryObj.baseFare.min;
+        vehicleCategoryObj.timeFare = vehicleCategoryObj.timeFare.min;
+
+        return {
+          ...driver._doc,
+          car: { ...driver._doc.car, category: vehicleCategoryObj },
+        };
+      })
+    );
+
+    res.json(driversWithCarCategory);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+//Get all drivers admin 
+exports.getDriversAdmin = async (req, res) => {
+  try {
+    const drivers = await Driver.find();
+    // Check if there are no drivers
+    if (drivers.length === 0) {
+      return res.status(404).json({ error: "No drivers found" });
+    }
+    //Fetch all car categories with each driver Car
+    const driversWithCarCategory = await Promise.all(
+      drivers.map(async (driver) => {
+        const vehicleCategory = await VehicleCategory.findById(
+          driver.car.category
+        );
         return {
           ...driver._doc,
           car: { ...driver._doc.car, category: vehicleCategory },
@@ -206,7 +239,7 @@ exports.getDrivers = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-};
+}
 
 // Get Driver by ID
 exports.getDriver = async (req, res) => {
@@ -217,9 +250,14 @@ exports.getDriver = async (req, res) => {
     // Fetch the car category for the current driver
     const carCategory = await VehicleCategory.findById(driver.car.category);
 
+    let vehicleCategoryObj = carCategory.toObject();
+    vehicleCategoryObj.initialServiceFee = vehicleCategoryObj.initialServiceFee.min;
+    vehicleCategoryObj.baseFare = vehicleCategoryObj.baseFare.min;
+    vehicleCategoryObj.timeFare = vehicleCategoryObj.timeFare.min;
+
     res.json({
       ...driver._doc,
-      car: { ...driver._doc.car, category: carCategory },
+      car: { ...driver._doc.car, category: vehicleCategoryObj },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -527,8 +565,13 @@ exports.getDriverCar = async (req, res) => {
     // Fetch the car category for the current driver
     const carCategory = await VehicleCategory.findById(driver.car.category);
 
+    const vehicleCategoryObj = carCategory.toObject();
+    vehicleCategoryObj.initialServiceFee = vehicleCategoryObj.initialServiceFee.min;
+    vehicleCategoryObj.baseFare = vehicleCategoryObj.baseFare.min;
+    vehicleCategoryObj.timeFare = vehicleCategoryObj.timeFare.min;
+
     res.json({
-      car: { ...driver.car, category: carCategory },
+      car: { ...driver.car, category: vehicleCategoryObj },
     });
   } catch (error) {
     res.status(400).json({ error: error.message });

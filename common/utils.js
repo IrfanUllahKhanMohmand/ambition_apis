@@ -1,6 +1,16 @@
 const axios = require("axios");
 const VehicleCategory = require("../models/VehicleCategory");
 
+
+
+
+//get random fare between min and max
+const getRandomFare = (min, max) => {
+  return Math.round((Math.random() * (max - min) + min) * 100) / 100
+};
+
+
+
 //Calculate the distance between origin and destination lat long using google maps api
 const getDistance = (
   originLat,
@@ -27,31 +37,26 @@ const getDistance = (
   });
 };
 
-//Get the estimated fare for a trip
-const getEstimatedFare = async (distance, vehicleCategoryId) => {
-  try {
-    const vehicleCategory = await VehicleCategory.findById(vehicleCategoryId);
-    const distanceFare = vehicleCategory.distanceFare;
-    const distanceInKm = parseFloat(distance.split(" ")[0]);
-    const estimatedFare = distanceFare * distanceInKm;
-    return estimatedFare;
-  } catch (error) {
-    return error;
-  }
-};
+
 
 //Get the estimated time for a trip using google maps api
-const getEstimatedTime = (origin, destination) => {
+const getEstimatedTime = (originLat,
+  originLong,
+  destinationLat,
+  destinationLong) => {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   return new Promise((resolve, reject) => {
     axios
       .get(
-        `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin}&destinations=${destination}&key=${apiKey}`
+        `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originLat},${originLong}&destinations=${destinationLat},${destinationLong}&key=${apiKey}`
       )
-      .then((res) => res.json())
-      .then((data) => {
+      .then((response) => {
+        const data = response.data;
         if (data.status === "OK") {
-          resolve(data.rows[0].elements[0].duration.text);
+          const value = data.rows[0].elements[0].duration.value;
+          //convert seconds to minutes but with 2 decimal places and if the value is 0 or negative, return 0
+          const duration = value <= 0 ? 0 : (value / 60).toFixed(2);
+          resolve(duration);
         } else {
           reject(data.error_message);
         }
@@ -59,6 +64,30 @@ const getEstimatedTime = (origin, destination) => {
       .catch((err) => reject(err));
   });
 };
+
+//Get the estimated time for a trip from the getEstimatedTime function
+const getEstimatedTimeFare = async (originLat,
+  originLong,
+  destinationLat,
+  destinationLong, vehicleCategoryId) => {
+  try {
+    const vehicleCategory = await VehicleCategory.findById(vehicleCategoryId);
+    const timeFare = getRandomFare(vehicleCategory.timeFare.min, vehicleCategory.timeFare.max);
+    const timeInMinutes = parseFloat(await getEstimatedTime(
+      originLat,
+      originLong,
+      destinationLat,
+      destinationLong
+    ))
+
+
+    //round upto 2 decimal places and return as float
+    const estimatedFare = parseFloat((timeFare * timeInMinutes).toFixed(2));
+    return estimatedFare;
+  } catch (error) {
+    return error;
+  }
+}
 
 //function to get the polyline from the Google Directions API
 const getPolyline = (origin, destination) => {
@@ -112,8 +141,9 @@ const decodePolyline = (polyline) => {
 };
 
 module.exports = {
+  getRandomFare,
   getDistance,
-  getEstimatedFare,
+  getEstimatedTimeFare,
   getEstimatedTime,
   getPolyline,
 };

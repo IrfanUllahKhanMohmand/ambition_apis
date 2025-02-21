@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require("mongoose")
 
 const vehicleCategorySchema = new mongoose.Schema({
   vehicleType: {
@@ -18,12 +18,25 @@ const vehicleCategorySchema = new mongoose.Schema({
     default: {},
   },
   loadVolume: Number,
-  baseFare: Number,
-  timeFare: Number,
-  distanceFare: Number,
+  initialServiceFee: {
+    min: { type: Number, default: 0 },
+    max: { type: Number, default: 0 },
+  },
+  baseFare: {
+    min: { type: Number, default: 0 },
+    max: { type: Number, default: 0 },
+  },
+  timeFare: {
+    min: { type: Number, default: 0 },
+    max: { type: Number, default: 0 },
+  },
+
   description: String,
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
-});
+})
 
-module.exports = mongoose.model("VehicleCategory", vehicleCategorySchema);
+const VehicleCategory = mongoose.model("VehicleCategory", vehicleCategorySchema)
+
+module.exports = VehicleCategory
+

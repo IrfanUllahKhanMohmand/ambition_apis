@@ -26,6 +26,7 @@ const {
   resendOTP,
   verifyOTP,
   deleteDriverByPhone,
+  getDriversAdmin,
 } = require("../controllers/driverController");
 const auth = require("../middleware/auth");
 
@@ -81,6 +82,10 @@ module.exports = (io) => {
 
   // Protected routes for Driver CRUD
   router.get("/", getDrivers);
+
+  // Admin Get all Drivers
+  router.get("/admin", getDriversAdmin);
+
   router.get("/:id", getDriver);
   router.put(
     "/:id",

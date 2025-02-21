@@ -56,12 +56,15 @@ const rideRequestSchema = new mongoose.Schema({
     address: { type: String, default: "" },
   },
   distance: { type: Number, default: 0 },
+  time: { type: Number, default: 0 },
   fare: {
+    vehicleInitialServiceFee: { type: Number, default: 0 },
     vehicleBaseFare: { type: Number, default: 0 },
-    vehicleDistanceFare: { type: Number, default: 0 },
+    vehicleTimeFare: { type: Number, default: 0 },
     vehicleItemBasedPricing: { type: Number, default: 0 },
+    carInitialServiceFee: { type: Number, default: 0 },
     carBaseFare: { type: Number, default: 0 },
-    carDistanceFare: { type: Number, default: 0 },
+    carTimeFare: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
   },
   items: [

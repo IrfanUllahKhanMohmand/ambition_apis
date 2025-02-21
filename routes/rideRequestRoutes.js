@@ -11,6 +11,7 @@ const {
   getDistance,
   getEstimatedFare,
   getEstimatedTime,
+  getEstimatedTimeFare,
   getOnGoingRideRequestByUser,
   getOnGoingRideRequestByDriver,
   getPendingRideRequestsForDriverCarCategory,
@@ -87,6 +88,7 @@ module.exports = (io) => {
   router.post("/distance", (req, res) => getDistance(req, res));
   router.post("/fare", (req, res) => getEstimatedFare(req, res));
   router.post("/time", (req, res) => getEstimatedTime(req, res));
+  router.post("/timefare", (req, res) => getEstimatedTimeFare(req, res));
 
   router.post("/polyline", (req, res) => getPolyline(req, res));
   return router;

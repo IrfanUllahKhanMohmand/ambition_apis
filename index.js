@@ -6,6 +6,7 @@ const { createServer } = require("http");
 const { Server } = require("socket.io");
 const bodyParser = require("body-parser");
 
+
 const userRoutes = require("./routes/userRoutes");
 const driverRoutes = require("./routes//driverRoutes");
 const vehicleCategoryRoutes = require("./routes/vehicleCategoryRoutes");
@@ -79,43 +80,8 @@ app.get("/api/sendSocketEvent", (req, res) => {
   res.send("Event sent!");
 });
 
-//Endpoint to delete a specific collection in mongoDB
-// app.delete("/api/deleteCollection", async (req, res) => {
-//   try {
-//     const collection = req.body.collection;
-//     await mongoose.connection.dropCollection(collection);
-//     res.status(200).json({ message: "Collection deleted successfully" });
-//   } catch (error) {
-//     res.status(500).send(error);
-//   }
-// });
 
 
-
-
-//Endpoint to update vehicle category pricing
-// app.put("/api/updateVehicleCategoryPricing", async (req, res) => {
-//   try {
-//     for (const van of vanData) {
-//       await VehicleCategory.updateOne(
-//         { name: van.vanCategory }, // Match the vanCategory to vehicleType
-//         {
-//           $set: {
-//             capacity: van.capacity,
-//             pricing: van.pricing,
-//             updatedAt: new Date(),
-//           },
-//         },
-//         { upsert: true } // If the document doesn't exist, create a new one
-//       );
-//     }
-
-//     return res.status(200).json({ message: "Vehicle categories updated successfully " });
-//   } catch (err) {
-//     return res.status(500).json({ message: err.message });
-//   }
-// }
-// );
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));

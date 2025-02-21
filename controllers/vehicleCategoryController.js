@@ -2,8 +2,9 @@ const VehicleCategory = require("../models/VehicleCategory");
 const Item = require("../models/Item");
 const {
   getDistance,
-  getEstimatedFare,
   getEstimatedTime,
+  getEstimatedTimeFare,
+  getRandomFare,
 } = require("../common/utils");
 
 // Create a Vehicle Category
@@ -124,6 +125,13 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
       destinationLong
     );
 
+    const estimatedTime = await getEstimatedTime(
+      originLat,
+      originLong,
+      destinationLat,
+      destinationLong
+    );
+
     // Process regular items
     if (items.length > 0) {
       const fetchedItems = await Promise.all(
@@ -199,7 +207,7 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
 
     // Sort by prioritization criteria
     moveFilteredVehicles.sort((a, b) => {
-      if (a.baseFare !== b.baseFare) return a.baseFare - b.baseFare;
+      if (a.baseFare.min !== b.baseFare.min) return a.baseFare.min - b.baseFare.min;
       if (a.payloadCapacity !== b.payloadCapacity)
         return a.payloadCapacity - b.payloadCapacity;
       if (a.loadVolume !== b.loadVolume) return a.loadVolume - b.loadVolume;
@@ -211,8 +219,11 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
       moveFilteredVehicles.map(async (vehicle) => {
         try {
           const plainVehicle = vehicle.toObject();
-          plainVehicle.estimatedFare = await getEstimatedFare(
-            distance,
+          plainVehicle.estimatedFare = await getEstimatedTimeFare(
+            originLat,
+            originLong,
+            destinationLat,
+            destinationLong,
             vehicle._id
           );
 
@@ -224,8 +235,13 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
 
           // Calculate event fare
           plainVehicle.itemBasedPricing = itemBasedPricing;
+          plainVehicle.baseFare = getRandomFare(plainVehicle.baseFare.min, plainVehicle.baseFare.max);
+          plainVehicle.initialServiceFee = getRandomFare(plainVehicle.initialServiceFee.min, plainVehicle.initialServiceFee.max);
+          plainVehicle.timeFare = getRandomFare(plainVehicle.timeFare.min, plainVehicle.timeFare.max);
+
           plainVehicle.eventFare =
             plainVehicle.baseFare +
+            plainVehicle.initialServiceFee +
             plainVehicle.estimatedFare +
             itemBasedPricing;
 
@@ -247,6 +263,7 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
         itemCounts,
         peopleTagging,
         distance: parseFloat(distance.split(" ")[0]),
+        time: parseFloat(estimatedTime)
       },
       suggestedVehicle: vehiclesWithFare[0] || null,
       alternativeVehicles: vehiclesWithFare.slice(1),
@@ -287,6 +304,7 @@ exports.getCarCategoriesByPassengers = async (req, res) => {
       destinationLong
     );
 
+
     // Fetch car category vehicles only
     const carCategories = await VehicleCategory.find({
       vehicleType: "Car",
@@ -299,8 +317,20 @@ exports.getCarCategoriesByPassengers = async (req, res) => {
         try {
           const plainCar = car.toObject(); // Convert to plain object if Mongoose doc
           // Fare for event contains car base fare + estimated fare
-          plainCar.estimatedFare = await getEstimatedFare(distance, car._id);
-          plainCar.eventFare = plainCar.baseFare + plainCar.estimatedFare;
+          plainCar.estimatedFare = await getEstimatedTimeFare(
+            originLat,
+            originLong,
+            destinationLat,
+            destinationLong,
+            car._id
+          );
+          plainCar.baseFare = getRandomFare(plainCar.baseFare.min, plainCar.baseFare.max);
+          plainCar.initialServiceFee = getRandomFare(plainCar.initialServiceFee.min, plainCar.initialServiceFee.max);
+          plainCar.timeFare = getRandomFare(plainCar.timeFare.min, plainCar.timeFare.max);
+
+          plainCar.eventFare =
+            plainCar.baseFare +
+            plainCar.initialServiceFee + plainCar.estimatedFare;
           return plainCar;
         } catch (error) {
           console.error(`Error fetching fare for car ${car._id}:`, error);
