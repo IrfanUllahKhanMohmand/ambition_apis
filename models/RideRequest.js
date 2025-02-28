@@ -59,12 +59,13 @@ const rideRequestSchema = new mongoose.Schema({
   time: { type: Number, default: 0 },
   fare: {
     vehicleInitialServiceFee: { type: Number, default: 0 },
-    vehicleBaseFare: { type: Number, default: 0 },
+    vehicleServiceFee: { type: Number, default: 0 },
     vehicleTimeFare: { type: Number, default: 0 },
     vehicleItemBasedPricing: { type: Number, default: 0 },
-    carInitialServiceFee: { type: Number, default: 0 },
-    carBaseFare: { type: Number, default: 0 },
     carTimeFare: { type: Number, default: 0 },
+    helpersCharge: { type: Number, default: 0 },
+    congestionCharge: { type: Number, default: 0 },
+    surcharge: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
   },
   items: [

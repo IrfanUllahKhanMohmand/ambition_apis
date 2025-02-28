@@ -195,14 +195,10 @@ exports.getDrivers = async (req, res) => {
         const vehicleCategory = await VehicleCategory.findById(
           driver.car.category
         );
-        let vehicleCategoryObj = vehicleCategory.toObject();
-        vehicleCategoryObj.initialServiceFee = vehicleCategoryObj.initialServiceFee.min;
-        vehicleCategoryObj.baseFare = vehicleCategoryObj.baseFare.min;
-        vehicleCategoryObj.timeFare = vehicleCategoryObj.timeFare.min;
 
         return {
           ...driver._doc,
-          car: { ...driver._doc.car, category: vehicleCategoryObj },
+          car: { ...driver._doc.car, category: vehicleCategory },
         };
       })
     );
@@ -250,14 +246,9 @@ exports.getDriver = async (req, res) => {
     // Fetch the car category for the current driver
     const carCategory = await VehicleCategory.findById(driver.car.category);
 
-    let vehicleCategoryObj = carCategory.toObject();
-    vehicleCategoryObj.initialServiceFee = vehicleCategoryObj.initialServiceFee.min;
-    vehicleCategoryObj.baseFare = vehicleCategoryObj.baseFare.min;
-    vehicleCategoryObj.timeFare = vehicleCategoryObj.timeFare.min;
-
     res.json({
       ...driver._doc,
-      car: { ...driver._doc.car, category: vehicleCategoryObj },
+      car: { ...driver._doc.car, category: carCategory },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -565,13 +556,8 @@ exports.getDriverCar = async (req, res) => {
     // Fetch the car category for the current driver
     const carCategory = await VehicleCategory.findById(driver.car.category);
 
-    const vehicleCategoryObj = carCategory.toObject();
-    vehicleCategoryObj.initialServiceFee = vehicleCategoryObj.initialServiceFee.min;
-    vehicleCategoryObj.baseFare = vehicleCategoryObj.baseFare.min;
-    vehicleCategoryObj.timeFare = vehicleCategoryObj.timeFare.min;
-
     res.json({
-      car: { ...driver.car, category: vehicleCategoryObj },
+      car: { ...driver.car, category: carCategory },
     });
   } catch (error) {
     res.status(400).json({ error: error.message });

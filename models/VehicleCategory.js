@@ -18,18 +18,28 @@ const vehicleCategorySchema = new mongoose.Schema({
     default: {},
   },
   loadVolume: Number,
-  initialServiceFee: {
-    min: { type: Number, default: 0 },
-    max: { type: Number, default: 0 },
-  },
-  baseFare: {
-    min: { type: Number, default: 0 },
-    max: { type: Number, default: 0 },
-  },
-  timeFare: {
-    min: { type: Number, default: 0 },
-    max: { type: Number, default: 0 },
-  },
+  initialServiceFee: { type: Number, default: 0 },
+  serviceFee: { type: Number, default: 0 },
+  timeFare: [
+    {
+      startMinutes: {
+        type: Number,
+        required: true,
+      },
+      endMinutes: {
+        type: Number,
+        required: true,
+      },
+      minPrice: {
+        type: Number,
+        required: true,
+      },
+      maxPrice: {
+        type: Number,
+        required: true,
+      }
+    }
+  ],
 
   description: String,
   createdAt: { type: Date, default: Date.now },

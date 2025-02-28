@@ -1,4 +1,7 @@
 const axios = require("axios");
+const polyline = require("@mapbox/polyline");
+const turf = require("@turf/turf");
+const congestionZone = require("../congestion_zone_polygon.json");
 const VehicleCategory = require("../models/VehicleCategory");
 
 
@@ -140,10 +143,40 @@ const decodePolyline = (polyline) => {
   return coordinates;
 };
 
+
+
+async function isRouteInCongestionZone(origin, destination) {
+
+
+  try {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&key=${apiKey}`;
+    const response = await axios.get(url);
+    const data = response.data;
+
+    if (data.status !== "OK") {
+      console.error("Error:", data.status);
+      return false;
+    }
+
+    const polylinePoints = data.routes[0].overview_polyline.points;
+    const routeCoords = polyline.decode(polylinePoints).map(([lat, lng]) => [lng, lat]); // Turf.js uses [lng, lat]
+
+    const routeLine = turf.lineString(routeCoords);
+    const zonePolygon = turf.polygon(congestionZone.features[0].geometry.coordinates);
+
+    return turf.booleanIntersects(routeLine, zonePolygon);
+  } catch (error) {
+    console.error("Error fetching route details:", error.message);
+    return false;
+  }
+}
+
 module.exports = {
   getRandomFare,
   getDistance,
   getEstimatedTimeFare,
   getEstimatedTime,
   getPolyline,
+  isRouteInCongestionZone
 };

@@ -18,21 +18,8 @@ exports.getVehicles = async (req, res) => {
     // Find all vehicles and populate the 'vehicleCategory' field in a single query
     const vehicles = await Vehicle.find().populate("vehicleCategory");
 
-    const refinedVehicles = vehicles.map((vehicle) => {
-      // Refine the vehicle object to only include the necessary fields
-      vehicle = vehicle.toObject();
 
-      vehicle.vehicleCategory.initialServiceFee = vehicle.vehicleCategory.initialServiceFee.min;
-      vehicle.vehicleCategory.baseFare = vehicle.vehicleCategory.baseFare.min;
-      vehicle.vehicleCategory.timeFare = vehicle.vehicleCategory.timeFare.min;
-
-      return vehicle;
-    });
-
-
-
-
-    res.json(refinedVehicles);
+    res.json(vehicles);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

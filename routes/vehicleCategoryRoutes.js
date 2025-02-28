@@ -10,6 +10,7 @@ const {
   deleteVehicleCategory,
   getVehicleCategoriesByItems,
   getCarCategoriesByPassengers,
+  isRouteInCongestionZone
 } = require("../controllers/vehicleCategoryController");
 
 // Create a Vehicle Category
@@ -35,5 +36,8 @@ router.post("/items", getVehicleCategoriesByItems);
 
 // Get vehicle category by passengers
 router.post("/passengers", getCarCategoriesByPassengers);
+
+// Check if a route is in congestion zone
+router.post("/congestion-zone", isRouteInCongestionZone);
 
 module.exports = router;
