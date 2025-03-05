@@ -47,6 +47,7 @@ module.exports = (io) => {
       { name: "vehicleInsurancePicture", maxCount: 1 },
       { name: "publicLiabilityInsurancePicture", maxCount: 1 },
       { name: "goodsInTransitInsurancePicture", maxCount: 1 },
+      { name: "pcoLicensePicture", maxCount: 1 },
     ]),
     [
       [
@@ -102,6 +103,7 @@ module.exports = (io) => {
       { name: "vehicleInsurancePicture", maxCount: 1 },
       { name: "publicLiabilityInsurancePicture", maxCount: 1 },
       { name: "goodsInTransitInsurancePicture", maxCount: 1 },
+      { name: "pcoLicensePicture", maxCount: 1 },
     ]),
     uploadToFirebase,
     updateDriver

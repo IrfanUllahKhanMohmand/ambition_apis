@@ -81,6 +81,12 @@ exports.createRideRequest = async (req, res, io) => {
 
     await polyLinePoints.save();
 
+    const vehicleDriverTotal = (vehicleInitialServiceFee || 0) + (vehicleServiceFee || 0) + (vehicleTimeFare || 0) + (vehicleItemBasedPricing || 0) + (helpersCharge || 0) + (congestionCharge || 0) + (surcharge || 0);
+    const carDriverTotal = carTimeFare || 0;
+
+    const vehicleDriverTotal80 = (vehicleDriverTotal * 0.8).toFixed(2);
+    const carDriverTotal80 = (carDriverTotal * 0.8).toFixed(2);
+
     let fare = {
       vehicleInitialServiceFee: vehicleInitialServiceFee || 0,
       vehicleServiceFee: vehicleServiceFee || 0,
@@ -90,6 +96,8 @@ exports.createRideRequest = async (req, res, io) => {
       helpersCharge: helpersCharge || 0,
       congestionCharge: congestionCharge || 0,
       surcharge: surcharge || 0,
+      vehicleDriverTotal: vehicleDriverTotal80 || 0,
+      carDriverTotal: carDriverTotal80 || 0,
       total: total || 0,
     };
 
@@ -327,9 +335,9 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
 
     const totalEarnings = completedRides.reduce((acc, ride) => {
       if (ride.driverId && ride.driverId.toString() === req.params.id) {
-        return acc + ride.fare.vehicleInitialServiceFee + ride.fare.vehicleServiceFee + ride.fare.vehicleTimeFare + ride.fare.vehicleItemBasedPricing + ride.fare.helpersCharge + ride.fare.congestionCharge + ride.fare.surcharge;
+        return acc + ride.fare.vehicleDriverTotal;
       } else if (ride.carDriverId && ride.carDriverId.toString() === req.params.id) {
-        return acc + ride.fare.carTimeFare;
+        return acc + ride.fare.carDriverTotal;
       }
       return acc;
     }, 0);
@@ -409,10 +417,10 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
 
         if (vehicleCategoryId === driverCarCategoryId) {
           // Use vehicle fare calculation
-          totalFare = ride.fare.vehicleInitialServiceFee + ride.fare.vehicleServiceFee + ride.fare.vehicleTimeFare + ride.fare.vehicleItemBasedPricing + ride.fare.helpersCharge + ride.fare.congestionCharge + ride.fare.surcharge;
+          totalFare = ride.fare.vehicleDriverTotal;
         } else if (carCategoryId === driverCarCategoryId) {
           // Use car fare calculation
-          totalFare = ride.fare.carTimeFare;
+          totalFare = ride.fare.carDriverTotal;
         }
 
         // Add total fare to the ride's fare object and round to 2 decimal places
@@ -865,7 +873,7 @@ exports.getClosedRideRequestsByDriver = async (req, res) => {
         // Assign the detailed items back to the ride
         ride.items = itemsWithDetails;
 
-        // Determine the fare logic based on driver car category
+        // Determine the fare logic based on driver car category 
         const driver = await Driver.findById(req.params.id);
         if (!driver) {
           throw new Error("Driver not found");
@@ -881,10 +889,10 @@ exports.getClosedRideRequestsByDriver = async (req, res) => {
 
         if (vehicleCategoryId === driverCarCategoryId) {
           // Use vehicle fare calculation
-          totalFare = ride.fare.vehicleInitialServiceFee + ride.fare.vehicleServiceFee + ride.fare.vehicleTimeFare + ride.fare.vehicleItemBasedPricing + ride.fare.helpersCharge + ride.fare.congestionCharge + ride.fare.surcharge;
+          totalFare = ride.fare.vehicleDriverTotal;
         } else if (carCategoryId === driverCarCategoryId) {
           // Use car fare calculation
-          totalFare = ride.fare.carTimeFare;
+          totalFare = ride.fare.carDriverTotal;
         }
 
         // Add total fare to the ride's fare object
@@ -900,6 +908,130 @@ exports.getClosedRideRequestsByDriver = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+exports.getCompletedRideRequestsForPayment = async (req, res) => {
+  try {
+    // Get all completed ride requests without filtering by driver
+    const rideRequests = await RideRequest.find({
+      status: "completed", // Only completed rides
+    })
+
+    // Convert rideRequests to a plain object
+    const rideRequestObj = rideRequests.map((ride) => ride.toObject())
+
+    // Process each ride request to create separate entries for each driver
+    const processedRideRequests = await Promise.all(
+      rideRequestObj.flatMap(async (ride) => {
+        const driverEntries = []
+
+        // Add vehicle driver entry if exists
+        if (ride.driverId) {
+          const vehicleDriver = await Driver.findById(ride.driverId)
+          if (vehicleDriver) {
+            const vehicleCategory = await VehicleCategory.findById(
+              vehicleDriver.car.category
+            );
+            driverEntries.push({
+              _id: ride._id,
+              date: ride.createdAt,
+              driverType: "vehicleDriver",
+              driver: {
+                ...vehicleDriver._doc,
+                car: { ...vehicleDriver._doc.car, category: vehicleCategory },
+              },
+              paymentStatus: ride.driverPaymentStatus,
+            })
+          }
+        }
+
+        // Add car driver entry if exists
+        if (ride.carDriverId) {
+          const carDriver = await Driver.findById(ride.carDriverId)
+          if (carDriver) {
+            const vehicleCategory = await VehicleCategory.findById(
+              carDriver.car.category
+            );
+
+            driverEntries.push({
+              _id: ride._id,
+              date: ride.createdAt,
+              driverType: "carDriver",
+              driver: {
+                ...carDriver._doc,
+                car: { ...carDriver._doc.car, category: vehicleCategory },
+              },
+              paymentStatus: ride.carDriverPaymentStatus,
+            })
+          }
+        }
+
+        return driverEntries
+      }),
+    )
+
+    // Flatten the array of arrays to get a single array of all driver entries
+    const flattenedResults = processedRideRequests.flat()
+
+    // Send the processed ride requests
+    res.json(flattenedResults)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+
+//update driverPaymentStatus in RideRequest
+exports.updateDriverPaymentStatus = async (req, res) => {
+  try {
+    const { driverPaymentStatus } = req.body;
+
+    if (driverPaymentStatus.isPaid === true) {
+      driverPaymentStatus.paidAt = new Date();
+    }
+
+    const rideRequest = await RideRequest.findByIdAndUpdate(
+      req.params.id,
+      { driverPaymentStatus },
+      { new: true }
+    );
+
+    if (!rideRequest)
+      return res.status(404).json({ error: "RideRequest not found" });
+
+    res.json(rideRequest);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+//update carDriverPaymentStatus in RideRequest
+exports.updateCarDriverPaymentStatus = async (req, res) => {
+  try {
+    const { carDriverPaymentStatus } = req.body;
+
+    if (carDriverPaymentStatus.isPaid === true) {
+      carDriverPaymentStatus.paidAt = new Date();
+    }
+
+    const rideRequest = await RideRequest.findByIdAndUpdate(
+      req.params.id,
+      { carDriverPaymentStatus },
+      { new: true }
+    );
+
+    if (!rideRequest)
+      return res.status(404).json({ error: "RideRequest not found" });
+
+    res.json(rideRequest);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+
+
+
 
 //Fetch all ride requests by user id with status of completed or canceled
 exports.getClosedRideRequestsByUser = async (req, res) => {
@@ -998,10 +1130,10 @@ exports.getOnGoingRideRequestByDriver = async (req, res) => {
 
     if (vehicleCategoryId === driverCarCategoryId) {
       // Use vehicle fare calculation
-      totalFare = rideRequest.fare.vehicleInitialServiceFee + rideRequest.fare.vehicleServiceFee + rideRequest.fare.vehicleTimeFare + rideRequest.fare.vehicleItemBasedPricing + rideRequest.fare.helpersCharge + rideRequest.fare.congestionCharge + rideRequest.fare.surcharge;
+      totalFare = rideRequest.fare.vehicleDriverTotal;
     } else if (carCategoryId === driverCarCategoryId) {
       // Use car fare calculation
-      totalFare = rideRequest.fare.carTimeFare;
+      totalFare = rideRequest.fare.carDriverTotal;
     }
 
     // Add total fare to the ride's fare object
@@ -1046,28 +1178,9 @@ exports.completeRideRequest = async (req, res) => {
   }
 };
 
-// Get estimated fare for a trip
-exports.getEstimatedFare = async (req, res) => {
-  try {
-    const {
-      originLat,
-      originLong,
-      destinationLat,
-      destinationLong,
-      vehicleCategoryId,
-    } = req.body;
-    const distance = await getDistance(
-      originLat,
-      originLong,
-      destinationLat,
-      destinationLong
-    );
-    const fare = await getEstimatedFare(distance, vehicleCategoryId);
-    res.json({ distance, fare });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
+
+
+
 
 // Get estimated time fare for a trip
 exports.getEstimatedTimeFare = async (req, res) => {

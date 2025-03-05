@@ -26,6 +26,9 @@ const {
   getAllCanceledRideRequests,
   getRideStats,
   getRideRequestWithDriverAndUser,
+  getCompletedRideRequestsForPayment,
+  updateDriverPaymentStatus,
+  updateCarDriverPaymentStatus,
 } = require("../controllers/rideRequestController");
 const auth = require("../middleware/auth");
 
@@ -76,11 +79,26 @@ module.exports = (io) => {
     getClosedRideRequestsByUser(req, res)
   );
 
+  //get completed ride requests for payment
+  router.get("/payment", (req, res) =>
+    getCompletedRideRequestsForPayment(req, res)
+  );
+
   //cancel ride request
   router.put("/cancel/:id", (req, res) => cancelRideRequest(req, res));
 
   //complete ride request
   router.put("/complete/:id", (req, res) => completeRideRequest(req, res));
+
+  //update driver payment status
+  router.put("/driver/payment/:id", (req, res) =>
+    updateDriverPaymentStatus(req, res)
+  );
+
+  //update car driver payment status
+  router.put("/car/payment/:id", (req, res) =>
+    updateCarDriverPaymentStatus(req, res)
+  );
 
   router.put("/:id", (req, res) => updateRideRequest(req, res));
   router.delete("/:id", (req, res) => deleteRideRequest(req, res));
@@ -89,6 +107,8 @@ module.exports = (io) => {
   router.post("/fare", (req, res) => getEstimatedFare(req, res));
   router.post("/time", (req, res) => getEstimatedTime(req, res));
   router.post("/timefare", (req, res) => getEstimatedTimeFare(req, res));
+
+
 
   router.post("/polyline", (req, res) => getPolyline(req, res));
   return router;

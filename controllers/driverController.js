@@ -92,6 +92,7 @@ exports.createDriver = async (req, res) => {
       vehicleInsurancePicture: req.fileUrls.vehicleInsurancePicture,
       publicLiabilityInsurancePicture: req.fileUrls.publicLiabilityInsurancePicture,
       goodsInTransitInsurancePicture: req.fileUrls.goodsInTransitInsurancePicture,
+      pcoLicensePicture: req.fileUrls.pcoLicensePicture,
     });
     driver.password = await bcrypt.hash(password, 10);
     await driver.save();
@@ -297,6 +298,7 @@ exports.updateDriver = async (req, res) => {
       vehicleInsurancePicture,
       publicLiabilityInsurancePicture,
       goodsInTransitInsurancePicture,
+      pcoLicensePicture,
     } = req.fileUrls || {};
 
     // Initialize an object to hold the updates
@@ -323,6 +325,7 @@ exports.updateDriver = async (req, res) => {
       updateFields.publicLiabilityInsurancePicture = publicLiabilityInsurancePicture;
     if (goodsInTransitInsurancePicture)
       updateFields.goodsInTransitInsurancePicture = goodsInTransitInsurancePicture;
+    if (pcoLicensePicture) updateFields.pcoLicensePicture = pcoLicensePicture;
 
 
     // Add other fields to updateFields if they exist

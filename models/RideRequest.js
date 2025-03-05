@@ -13,6 +13,16 @@ const rideRequestSchema = new mongoose.Schema({
     ref: "Driver",
     default: null,
   },
+  driverPaymentStatus: {
+    isPaid: { type: Boolean, default: false },
+    paidAt: { type: Date, default: null },
+    transactionId: { type: String, default: null }
+  },
+  carDriverPaymentStatus: {
+    isPaid: { type: Boolean, default: false },
+    paidAt: { type: Date, default: null },
+    transactionId: { type: String, default: null }
+  },
   polylinePoints: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "PolyLinePoints",
@@ -66,6 +76,8 @@ const rideRequestSchema = new mongoose.Schema({
     helpersCharge: { type: Number, default: 0 },
     congestionCharge: { type: Number, default: 0 },
     surcharge: { type: Number, default: 0 },
+    vehicleDriverTotal: { type: Number, default: 0 },
+    carDriverTotal: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
   },
   items: [

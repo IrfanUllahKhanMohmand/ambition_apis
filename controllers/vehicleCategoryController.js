@@ -241,11 +241,14 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
     });
 
 
+    const totalPeople = peopleTagging + (requiredHelpers || 0);
+
+
     // Fetch and filter vehicles
     const vehicleCategories = await VehicleCategory.find({
       loadVolume: { $gte: totalVolume },
       payloadCapacity: { $gte: totalWeight },
-      passengerCapacity: { $gte: peopleTagging },
+      passengerCapacity: { $gte: totalPeople },
     });
 
     const filteredVehicles = vehicleCategories.filter((vehicle) => {

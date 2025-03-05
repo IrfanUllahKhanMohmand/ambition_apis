@@ -19,6 +19,7 @@ const driverSchema = new mongoose.Schema(
     vehicleInsurancePicture: { type: String, default: "" },
     publicLiabilityInsurancePicture: { type: String, default: "" },
     goodsInTransitInsurancePicture: { type: String, default: "" },
+    pcoLicensePicture: { type: String, default: "" },
 
     //Bank Details
     accountName: { type: String, default: "" },
