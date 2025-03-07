@@ -24,7 +24,6 @@ exports.createAdmin = async (req, res) => {
       profile,
       password,
     });
-    admin.password = await bcrypt.hash(password, 10);
     await admin.save();
 
     res.status(201).json({
@@ -81,6 +80,8 @@ exports.updateAdmin = async (req, res) => {
   }
 };
 
+
+
 // Login Admin
 
 exports.loginAdmin = async (req, res) => {
@@ -90,7 +91,7 @@ exports.loginAdmin = async (req, res) => {
     const admin = await Admin.findOne({ email });
     if (!admin) return res.status(404).json({ error: "Admin not found" });
 
-    const isMatch = await bcrypt.compare(password, admin.password);
+    const isMatch = admin.email === email && admin.password === password;
     if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
     const payload = { adminId: admin._id };
