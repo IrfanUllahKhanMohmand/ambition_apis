@@ -18,11 +18,11 @@ exports.createUser = async (req, res) => {
   try {
     const { name, email, password, phone, latitude, longitude } = req.body;
 
-    if (!req.fileUrls?.profile) {
-      return res.status(400).json({ error: "Please upload profile picture" });
-    }
+    // if (!req.fileUrls?.profile) {
+    //   return res.status(400).json({ error: "Please upload profile picture" });
+    // }
 
-    const profile = req.fileUrls.profile;
+    const profile = req.fileUrls?.profile || "";
 
     // Check if user already exists with the email or phone number
     let user = await User.findOne({ $or: [{ email }, { phone }] });

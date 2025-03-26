@@ -51,7 +51,6 @@ module.exports = (io) => {
     "/:id",
     upload.fields([{ name: "profile", maxCount: 1 }]),
     uploadToFirebase,
-
     updateUser
   );
   router.delete("/:id", deleteUser);
