@@ -25,6 +25,8 @@ const {
   sendOTPByEmail,
   resendOTPByEmail,
   verifyOTPByEmail,
+  disableUser,
+  enableUser,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 
@@ -67,6 +69,9 @@ module.exports = (io) => {
     updateUser
   );
   router.delete("/:id", deleteUser);
+
+  router.post("/disable/:id", disableUser);
+  router.post("/enable/:id", enableUser);
 
 
   router.delete("/byPhone/:phone", deleteUserByPhone);

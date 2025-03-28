@@ -30,7 +30,9 @@ const {
   updateDriverPassword,
   sendOTPToDriverByEmail,
   resendOTPToDriverByEmail,
-  verifyOTPForDriverByEmail
+  verifyOTPForDriverByEmail,
+  disableDriver,
+  enableDriver,
 } = require("../controllers/driverController");
 const auth = require("../middleware/auth");
 
@@ -127,6 +129,8 @@ module.exports = (io) => {
     updateDriver
   );
   router.delete("/:id", deleteDriver);
+  router.post("/disable/:id", disableDriver);
+  router.post("/enable/:id", enableDriver);
 
   // delete driver by phone
   router.delete("/phone/:phone", deleteDriverByPhone);

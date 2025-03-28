@@ -520,6 +520,38 @@ exports.deleteDriver = async (req, res) => {
   }
 };
 
+// Disable Driver
+exports.disableDriver = async (req, res) => {
+  try {
+    const driver = await Driver.findByIdAndUpdate(
+      req.params.id,
+      { isDisabled: true },
+      { new: true }
+    );
+    if (!driver) return res.status(404).json({ error: "Driver not found" });
+    res.json({ message: "Driver disabled successfully", driver });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//Enable driver
+exports.enableDriver = async (req, res) => {
+  try {
+    const driver = await Driver.findByIdAndUpdate(
+      req.params.id,
+      { isDisabled: false },
+      { new: true }
+    );
+    if (!driver) return res.status(404).json({ error: "Driver not found" });
+    res.json({ message: "Driver enabled successfully", driver });
+  }
+  catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+
+}
+
 //Delete driver using phone number
 exports.deleteDriverByPhone = async (req, res) => {
   try {

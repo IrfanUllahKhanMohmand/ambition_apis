@@ -423,6 +423,36 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+// Disable User
+exports.disableUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    user.isDisabled = true; // Set isDisabled to true
+    await user.save();
+
+    res.json({ message: "User disabled successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Enable User
+exports.enableUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    user.isDisabled = false; // Set isDisabled to false
+    await user.save();
+
+    res.json({ message: "User enabled successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 //Delete by phone number
 exports.deleteUserByPhone = async (req, res) => {
   try {
