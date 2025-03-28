@@ -21,6 +21,10 @@ const {
   resendOTP,
   verifyOTP,
   deleteUserByPhone,
+  updatePassword,
+  sendOTPByEmail,
+  resendOTPByEmail,
+  verifyOTPByEmail,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 
@@ -32,6 +36,15 @@ module.exports = (io) => {
     uploadToFirebase,
     createUser
   );
+
+  router.post("/update-password", updatePassword);
+
+  router.post("/send-otp", sendOTPByEmail);
+
+  router.post("/resend-otp-email", resendOTPByEmail);
+
+  router.post("/verify-otp-email", verifyOTPByEmail);
+
 
   router.post("/login", loginUser);
 
@@ -54,6 +67,7 @@ module.exports = (io) => {
     updateUser
   );
   router.delete("/:id", deleteUser);
+
 
   router.delete("/byPhone/:phone", deleteUserByPhone);
 

@@ -275,6 +275,14 @@ exports.getRideRequestWithDriverAndUser = async (req, res) => {
 //Get the last RideRequest by User ID which has status of pending or ongoing
 exports.getOnGoingRideRequestByUser = async (req, res) => {
   try {
+    // Check if the user exists and is not disabled
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found", type: "USER_NOT_FOUND" });
+    }
+    if (user.isDisabled) {
+      return res.status(403).json({ error: "User is disabled", type: "USER_DISABLED" });
+    }
     // Fetch the RideRequest
     const rideRequest = await RideRequest.findOne({
       user: req.params.id,
@@ -322,7 +330,10 @@ exports.getPendingRideRequestsForDriverCarCategory = async (req, res) => {
     // Fetch the driver
     const driver = await Driver.findById(req.params.id);
     if (!driver) {
-      return res.status(404).json({ error: "Driver not found" });
+      return res.status(404).json({ error: "Driver not found", type: "DRIVER_NOT_FOUND" });
+    }
+    if (driver.isDisabled) {
+      return res.status(403).json({ error: "Driver is disabled", type: "DRIVER_DISABLED" });
     }
 
     //Fetch the earnings of the driver by going through the ride requests where the driver is either driver or car driver and the status is completed
@@ -845,6 +856,13 @@ exports.updateDriverId = async (req, res, io) => {
 // Fetch all ride requests by driver id with status of completed or canceled
 exports.getClosedRideRequestsByDriver = async (req, res) => {
   try {
+    const driver = await Driver.findById(req.params.id);
+    if (!driver) {
+      return res.status(404).json({ error: "Driver not found", type: "DRIVER_NOT_FOUND" });
+    }
+    if (driver.isDisabled) {
+      return res.status(403).json({ error: "Driver is disabled", type: "DRIVER_DISABLED" });
+    }
     const rideRequests = await RideRequest.find({
       $or: [
         { driverId: req.params.id },
@@ -1036,6 +1054,15 @@ exports.updateCarDriverPaymentStatus = async (req, res) => {
 //Fetch all ride requests by user id with status of completed or canceled
 exports.getClosedRideRequestsByUser = async (req, res) => {
   try {
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found", type: "USER_NOT_FOUND" });
+    }
+    if (user.isDisabled) {
+      return res.status(403).json({ error: "User is disabled", type: "USER_DISABLED" });
+    }
+
     const rideRequests = await RideRequest.find({
       user: req.params.id,
       status: { $in: ["completed", "canceled"] },
@@ -1076,7 +1103,10 @@ exports.getOnGoingRideRequestByDriver = async (req, res) => {
     // Determine the fare logic based on driver car category
     const driver = await Driver.findById(req.params.id);
     if (!driver) {
-      return res.status(404).json({ error: "Driver not found" });
+      return res.status(404).json({ error: "Driver not found", type: "DRIVER_NOT_FOUND" });
+    }
+    if (driver.isDisabled) {
+      return res.status(403).json({ error: "Driver is disabled", type: "DRIVER_DISABLED" });
     }
     const rideRequest = await RideRequest.findOne({
       $or: [

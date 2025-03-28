@@ -43,6 +43,7 @@ const driverSchema = new mongoose.Schema(
       type: { type: String, default: "Point" },
       coordinates: { type: [Number], default: [0, 0] },
     },
+    isDisabled: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
   },

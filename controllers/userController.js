@@ -13,6 +13,9 @@ const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_A
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 
+
+
+
 // Register User
 exports.createUser = async (req, res) => {
   try {
@@ -64,6 +67,105 @@ exports.createUser = async (req, res) => {
 
     res.status(201).json({
       token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        profile: user.profile,
+        phone: user.phone,
+        location: user.location,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//Update password
+exports.updatePassword = async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Send OTP to Email's Associated Phone
+exports.sendOTPByEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+    await user.save();
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: user.phone,
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Resend OTP to Email's Associated Phone
+exports.resendOTPByEmail = async (req, res) => {
+  try {
+
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+    await user.save();
+
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: user.phone,
+    });
+
+    res.json({ message: "OTP resent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Verify OTP by Email
+exports.verifyOTPByEmail = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email, otp, otpExpires: { $gt: new Date() } });
+    if (!user) return res.status(400).json({ message: "Invalid OTP" });
+
+    res.json({
+      message: "OTP verified successfully",
       user: {
         id: user._id,
         name: user.name,
@@ -161,7 +263,12 @@ exports.loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) {
+      return res.status(404).json({ error: "User not found", type: "USER_NOT_FOUND" });
+    }
+    if (user.isDisabled) {
+      return res.status(403).json({ error: "User is disabled", type: "USER_DISABLED" });
+    }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
@@ -186,7 +293,12 @@ exports.loginUser = async (req, res) => {
 exports.getUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) {
+      return res.status(404).json({ error: "User not found", type: "USER_NOT_FOUND" });
+    }
+    if (user.isDisabled) {
+      return res.status(403).json({ error: "User is disabled", type: "USER_DISABLED" });
+    }
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -322,3 +434,4 @@ exports.deleteUserByPhone = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 }
+

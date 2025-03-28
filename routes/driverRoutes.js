@@ -27,6 +27,10 @@ const {
   verifyOTP,
   deleteDriverByPhone,
   getDriversAdmin,
+  updateDriverPassword,
+  sendOTPToDriverByEmail,
+  resendOTPToDriverByEmail,
+  verifyOTPForDriverByEmail
 } = require("../controllers/driverController");
 const auth = require("../middleware/auth");
 
@@ -77,6 +81,20 @@ module.exports = (io) => {
     uploadToFirebase,
     createDriver
   );
+
+  // update driver password
+  router.post("/update-password", updateDriverPassword);
+
+  // send OTP to driver by email  
+  router.post("/send-otp", sendOTPToDriverByEmail);
+
+  // resend OTP to driver by email
+
+  router.post("/resend-otp-email", resendOTPToDriverByEmail);
+
+  // verify OTP for driver by email
+
+  router.post("/verify-otp-email", verifyOTPForDriverByEmail);
 
   // Driver login
   router.post("/login", loginDriver);

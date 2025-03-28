@@ -276,7 +276,9 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
         (vehicle) => vehicle.vehicleType === "Environment Van"
       );
     } else {
-      moveFilteredVehicles = filteredVehicles;
+      moveFilteredVehicles = filteredVehicles.filter(
+        (vehicle) => vehicle.vehicleType !== "Refrigeration Van"
+      );
     }
 
     // Sort by prioritization criteria

@@ -111,6 +111,104 @@ exports.createDriver = async (req, res) => {
   }
 };
 
+// Update Driver Password
+exports.updateDriverPassword = async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    const driver = await Driver.findOne({ email });
+    if (!driver) return res.status(404).json({ error: "Driver not found" });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    driver.password = hashedPassword;
+    await driver.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Send OTP to Driver's Associated Phone by Email
+exports.sendOTPToDriverByEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const driver = await Driver.findOne({ email });
+    if (!driver) return res.status(404).json({ error: "Driver not found" });
+
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    driver.otp = otp;
+    driver.otpExpires = otpExpires;
+    await driver.save();
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: driver.phone,
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Resend OTP to Driver's Associated Phone by Email
+exports.resendOTPToDriverByEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const driver = await Driver.findOne({ email });
+    if (!driver) return res.status(404).json({ error: "Driver not found" });
+
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    driver.otp = otp;
+    driver.otpExpires = otpExpires;
+    await driver.save();
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: driver.phone,
+    });
+
+    res.json({ message: "OTP resent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Verify OTP for Driver by Email
+exports.verifyOTPForDriverByEmail = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const driver = await Driver.findOne({ email, otp, otpExpires: { $gt: new Date() } });
+    if (!driver) return res.status(400).json({ message: "Invalid OTP" });
+
+    res.json({
+      message: "OTP verified successfully",
+      driver: {
+        id: driver._id,
+        name: driver.name,
+        email: driver.email,
+        profile: driver.profile,
+        phone: driver.phone,
+        location: driver.location,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 
 //resend OTP
 exports.resendOTP = async (req, res) => {
@@ -242,7 +340,13 @@ exports.getDriversAdmin = async (req, res) => {
 exports.getDriver = async (req, res) => {
   try {
     const driver = await Driver.findById(req.params.id);
-    if (!driver) return res.status(404).json({ error: "Driver not found" });
+    if (!driver) {
+      return res.status(404).json({ error: "Driver not found", type: "DRIVER_NOT_FOUND" });
+    }
+    if (driver.isDisabled) {
+      return res.status(403).json({ error: "Driver is disabled", type: "DRIVER_DISABLED" });
+    }
+
 
     // Fetch the car category for the current driver
     const carCategory = await VehicleCategory.findById(driver.car.category);
@@ -262,7 +366,12 @@ exports.loginDriver = async (req, res) => {
     const { email, password } = req.body;
 
     const driver = await Driver.findOne({ email });
-    if (!driver) return res.status(400).json({ error: "Driver not found" });
+    if (!driver) {
+      return res.status(404).json({ error: "Driver not found", type: "DRIVER_NOT_FOUND" });
+    }
+    if (driver.isDisabled) {
+      return res.status(403).json({ error: "Driver is disabled", type: "DRIVER_DISABLED" });
+    }
 
     const isMatch = await bcrypt.compare(password, driver.password);
     if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
