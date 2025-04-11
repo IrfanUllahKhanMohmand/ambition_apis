@@ -5,6 +5,7 @@ const bcrypt = require("bcryptjs");
 const { validationResult } = require("express-validator");
 const jwt = require("jsonwebtoken");
 const twilio = require("twilio");
+const DriverTempOtp = require("../models/DriverTempOtp");
 require("dotenv").config();
 
 
@@ -21,7 +22,6 @@ exports.createDriver = async (req, res) => {
     const {
       name,
       email,
-      password,
       phone,
       latitude,
       longitude,
@@ -40,34 +40,20 @@ exports.createDriver = async (req, res) => {
       return res.status(400).json({ error: "Please upload all files" });
     }
 
-    let driver = await Driver.findOne({ $or: [{ email }, { phone }] });
-    if (driver) {
-      return res.status(400).json({ error: "Driver already exists with the email or phone number" });
+    let driverByEmail = await Driver.findOne({ email });
+    if (driverByEmail) {
+      return res.status(400).json({ error: "Driver already exists with the provided email" });
     }
 
-
-    const otp = generateOTP();
-    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
-
-    // Send OTP via Twilio and handle errors
-    try {
-      await twilioClient.messages.create({
-        body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: phone
-      });
-    } catch (otpError) {
-      return res.status(500).json({ error: otpError.message });
+    let driverByPhone = await Driver.findOne({ phone });
+    if (driverByPhone) {
+      return res.status(400).json({ error: "Driver already exists with the provided phone number" });
     }
 
-
-    driver = new Driver({
+    let driver = new Driver({
       name,
       email,
-      password,
       phone,
-      otp,
-      otpExpires,
       licenseCheckCode: licenseCheckCode ? licenseCheckCode : "",
       accountName: accountName,
       accountNumber: accountNumber,
@@ -94,7 +80,6 @@ exports.createDriver = async (req, res) => {
       goodsInTransitInsurancePicture: req.fileUrls.goodsInTransitInsurancePicture,
       pcoLicensePicture: req.fileUrls.pcoLicensePicture,
     });
-    driver.password = await bcrypt.hash(password, 10);
     await driver.save();
 
     const payload = { driverId: driver._id };
@@ -111,23 +96,103 @@ exports.createDriver = async (req, res) => {
   }
 };
 
-// Update Driver Password
-exports.updateDriverPassword = async (req, res) => {
+
+//Create User Temp OTP
+exports.createDriverTempOtp = async (req, res) => {
   try {
-    const { email, newPassword } = req.body;
+    const { phone } = req.body;
 
-    const driver = await Driver.findOne({ email });
-    if (!driver) return res.status(404).json({ error: "Driver not found" });
+    // Check if user already exists with the phone number
+    const existingDriver = await Driver.findOne({ phone });
+    if (existingDriver) {
+      return res.status(400).json({ error: "An account with this phone number already exists. Please log in or use a different phone number." });
+    }
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    driver.password = hashedPassword;
-    await driver.save();
+    let driverTempOtp = await DriverTempOtp.findOne({ phone });
+    if (driverTempOtp) {
+      driverTempOtp.otp = otp;
+      driverTempOtp.otpExpires = otpExpires;
+      await driverTempOtp.save();
+    } else {
+      driverTempOtp = new DriverTempOtp({
+        phone,
+        otp,
+        otpExpires,
+      });
+      await driverTempOtp.save();
+    }
 
-    res.json({ message: "Password updated successfully" });
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone
+    });
+
+    res.json({ message: "OTP sent successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
+// Verify User Temp OTP
+exports.verifyDriverTempOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    const driverTempOtp = await DriverTempOtp.findOne({ phone, otp, otpExpires: { $gt: new Date() } });
+    if (!driverTempOtp) return res.status(400).json({ message: "Invalid OTP" });
+
+    // Delete the OTP record after successful verification
+    await DriverTempOtp.deleteOne({ _id: driverTempOtp._id });
+
+    res.json({
+      message: "OTP verified successfully",
+      phone: driverTempOtp.phone,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Resend User Temp OTP
+exports.resendDriverTempOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    let driverTempOtp = await DriverTempOtp.findOne({ phone });
+    if (driverTempOtp) {
+      driverTempOtp.otp = otp;
+      driverTempOtp.otpExpires = otpExpires;
+      await driverTempOtp.save();
+    } else {
+      driverTempOtp = new UserTempOtp({
+        phone,
+        otp,
+        otpExpires,
+      });
+      await driverTempOtp.save();
+    }
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone
+    });
+
+    res.json({ message: "OTP resent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
 
 // Send OTP to Driver's Associated Phone by Email
 exports.sendOTPToDriverByEmail = async (req, res) => {
@@ -263,16 +328,16 @@ exports.verifyOTP = async (req, res) => {
 // Check if email exists middleware
 exports.checkEmail = async (req, res, next) => {
   try {
-    const driver = await Driver.findOne({
-      $or: [{
-        email: req.body.email
-      }, {
-        phone: req.body.phone
-      }]
-    });
-    if (driver) {
-      return res.status(400).json({ error: "Driver already exists with the email or phone number" });
+    const driverByEmail = await Driver.findOne({ email: req.body.email });
+    if (driverByEmail) {
+      return res.status(400).json({ error: "Driver already exists with the provided email" });
     }
+
+    const driverByPhone = await Driver.findOne({ phone: req.body.phone });
+    if (driverByPhone) {
+      return res.status(400).json({ error: "Driver already exists with the provided phone number" });
+    }
+
     next();
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -317,24 +382,45 @@ exports.getDriversAdmin = async (req, res) => {
     if (drivers.length === 0) {
       return res.status(404).json({ error: "No drivers found" });
     }
-    //Fetch all car categories with each driver Car
-    const driversWithCarCategory = await Promise.all(
+    // Fetch all car categories with each driver Car and include ride request stats
+    const driversWithDetails = await Promise.all(
       drivers.map(async (driver) => {
         const vehicleCategory = await VehicleCategory.findById(
           driver.car.category
         );
+
+        const rideRequests = await RideRequest.find({
+          $or: [
+            { driverId: driver._id },
+            { carDriverId: driver._id }
+          ],
+          status: { $in: ["completed", "canceled"] },
+        });
+
+        const completedRequests = rideRequests
+          ? rideRequests.filter((request) => request.status === "completed").length
+          : 0;
+
+        const canceledRequests = rideRequests
+          ? rideRequests.filter((request) => request.status === "canceled").length
+          : 0;
+
         return {
           ...driver._doc,
           car: { ...driver._doc.car, category: vehicleCategory },
+          stats: {
+            completedRequests,
+            canceledRequests,
+          },
         };
       })
     );
 
-    res.json(driversWithCarCategory);
+    res.json(driversWithDetails);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-}
+};
 
 // Get Driver by ID
 exports.getDriver = async (req, res) => {
@@ -347,25 +433,45 @@ exports.getDriver = async (req, res) => {
       return res.status(403).json({ error: "Driver is disabled", type: "DRIVER_DISABLED" });
     }
 
-
     // Fetch the car category for the current driver
     const carCategory = await VehicleCategory.findById(driver.car.category);
+
+    // Fetch ride request stats
+    const rideRequests = await RideRequest.find({
+      $or: [
+        { driverId: driver._id },
+        { carDriverId: driver._id }
+      ],
+      status: { $in: ["completed", "canceled"] },
+    });
+
+    const completedRequests = rideRequests
+      ? rideRequests.filter((request) => request.status === "completed").length
+      : 0;
+
+    const canceledRequests = rideRequests
+      ? rideRequests.filter((request) => request.status === "canceled").length
+      : 0;
 
     res.json({
       ...driver._doc,
       car: { ...driver._doc.car, category: carCategory },
+      stats: {
+        completedRequests,
+        canceledRequests,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// login Driver
-exports.loginDriver = async (req, res) => {
-  try {
-    const { email, password } = req.body;
 
-    const driver = await Driver.findOne({ email });
+exports.sendDriverLoginOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    const driver = await Driver.findOne({ phone });
     if (!driver) {
       return res.status(404).json({ error: "Driver not found", type: "DRIVER_NOT_FOUND" });
     }
@@ -373,25 +479,94 @@ exports.loginDriver = async (req, res) => {
       return res.status(403).json({ error: "Driver is disabled", type: "DRIVER_DISABLED" });
     }
 
-    const isMatch = await bcrypt.compare(password, driver.password);
-    if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    driver.otp = otp;
+    driver.otpExpires = otpExpires;
+    await driver.save();
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone,
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
+exports.resendDriverLoginOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    const driver = await Driver.findOne({ phone });
+    if (!driver) {
+      return res.status(404).json({ error: "Driver not found", type: "DRIVER_NOT_FOUND" });
+    }
+    if (driver.isDisabled) {
+      return res.status(403).json({ error: "Driver is disabled", type: "DRIVER_DISABLED" });
+    }
+
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    driver.otp = otp;
+    driver.otpExpires = otpExpires;
+    await driver.save();
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone,
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
+
+// Verify OTP for Login
+exports.verifyDriverLoginOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    const driver = await Driver.findOne({ phone, otp, otpExpires: { $gt: new Date() } });
+    if (!driver) return res.status(400).json({ error: "Invalid OTP" });
+
+    // Clear OTP after successful verification
+    driver.otp = null;
+    driver.otpExpires = null;
+    await driver.save();
 
     const payload = { driverId: driver._id };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
+
     res.json({
       token,
       driver: {
         id: driver._id,
-        email: driver.email,
-        password: password,
+        email: driver.email
       },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
+
 // Update Driver
 exports.updateDriver = async (req, res) => {
   try {
@@ -499,9 +674,30 @@ exports.updateDriver = async (req, res) => {
       updatedDriver.car.category
     );
 
+    // Fetch ride request stats
+    const rideRequests = await RideRequest.find({
+      $or: [
+        { driverId: updatedDriver._id },
+        { carDriverId: updatedDriver._id }
+      ],
+      status: { $in: ["completed", "canceled"] },
+    });
+
+    const completedRequests = rideRequests
+      ? rideRequests.filter((request) => request.status === "completed").length
+      : 0;
+
+    const canceledRequests = rideRequests
+      ? rideRequests.filter((request) => request.status === "canceled").length
+      : 0;
+
     res.json({
       ...updatedDriver._doc,
       car: { ...updatedDriver._doc.car, category: carCategory },
+      stats: {
+        completedRequests,
+        canceledRequests,
+      },
     });
   } catch (error) {
     console.error(error); // Log the error for debugging

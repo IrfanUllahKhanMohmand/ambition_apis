@@ -11,7 +11,6 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, unique: true },
   otp: { type: String },
   otpExpires: { type: Date },
-  password: String,
   isDisabled: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

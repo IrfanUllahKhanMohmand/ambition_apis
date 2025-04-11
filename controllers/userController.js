@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const UserTempOtp = require("../models/UserTempOtp");
 const RideRequest = require("../models/RideRequest");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -14,16 +15,109 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 
 
 
+//Create User Temp OTP
+exports.createUserTempOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    // Check if user already exists with the phone number
+    const existingUser = await User.findOne({ phone });
+    if (existingUser) {
+      return res.status(400).json({ error: "An account with this phone number already exists. Please log in or use a different phone number." });
+    }
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    let userTempOtp = await UserTempOtp.findOne({ phone });
+    if (userTempOtp) {
+      userTempOtp.otp = otp;
+      userTempOtp.otpExpires = otpExpires;
+      await userTempOtp.save();
+    } else {
+      userTempOtp = new UserTempOtp({
+        phone,
+        otp,
+        otpExpires,
+      });
+      await userTempOtp.save();
+    }
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Verify User Temp OTP
+exports.verifyUserTempOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    const userTempOtp = await UserTempOtp.findOne({ phone, otp, otpExpires: { $gt: new Date() } });
+    if (!userTempOtp) return res.status(400).json({ message: "Invalid OTP" });
+
+    // Delete the OTP record after successful verification
+    await UserTempOtp.deleteOne({ _id: userTempOtp._id });
+
+    res.json({
+      message: "OTP verified successfully",
+      phone: userTempOtp.phone,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Resend User Temp OTP
+exports.resendUserTempOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    let userTempOtp = await UserTempOtp.findOne({ phone });
+    if (userTempOtp) {
+      userTempOtp.otp = otp;
+      userTempOtp.otpExpires = otpExpires;
+      await userTempOtp.save();
+    } else {
+      userTempOtp = new UserTempOtp({
+        phone,
+        otp,
+        otpExpires,
+      });
+      await userTempOtp.save();
+    }
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone
+    });
+
+    res.json({ message: "OTP resent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
 
 
 // Register User
 exports.createUser = async (req, res) => {
   try {
-    const { name, email, password, phone, latitude, longitude } = req.body;
+    const { name, email, phone, latitude, longitude } = req.body;
 
-    // if (!req.fileUrls?.profile) {
-    //   return res.status(400).json({ error: "Please upload profile picture" });
-    // }
 
     const profile = req.fileUrls?.profile || "";
 
@@ -33,28 +127,11 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ error: "User already exists with this email or phone number" });
     }
 
-    const otp = generateOTP();
-    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
-
-    // Send OTP via Twilio and handle errors
-    try {
-      await twilioClient.messages.create({
-        body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: phone
-      });
-    } catch (otpError) {
-      return res.status(500).json({ error: otpError.message });
-    }
-
     // Create and save user
     user = new User({
       name,
       email,
-      password: await bcrypt.hash(password, 10), // Hash password before saving
       phone,
-      otp,
-      otpExpires,
       profile,
       location: { type: "Point", coordinates: [latitude, longitude] },
     });
@@ -77,27 +154,11 @@ exports.createUser = async (req, res) => {
       },
     });
   } catch (error) {
+    console.log("Error creating user:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
-//Update password
-exports.updatePassword = async (req, res) => {
-  try {
-    const { email, newPassword } = req.body;
-
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-    await user.save();
-
-    res.json({ message: "Password updated successfully" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
 
 // Send OTP to Email's Associated Phone
 exports.sendOTPByEmail = async (req, res) => {
@@ -242,15 +303,21 @@ exports.verifyOTP = async (req, res) => {
 exports.checkEmail = async (req, res, next) => {
   try {
     const user = await User.findOne({
-      $or: [{
-        email: req.body.email
-      }, {
-        phone: req.body.phone
-      }]
+      $or: [
+        { email: req.body.email },
+        { phone: req.body.phone }
+      ]
     });
+
     if (user) {
-      return res.status(400).json({ error: "User already exists with this email or phone number" });
+      if (user.email === req.body.email) {
+        return res.status(400).json({ error: "Email already exists" });
+      }
+      if (user.phone === req.body.phone) {
+        return res.status(400).json({ error: "Phone number already exists" });
+      }
     }
+
     next();
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -258,30 +325,103 @@ exports.checkEmail = async (req, res, next) => {
 };
 
 // Login User
-exports.loginUser = async (req, res) => {
+// Login User with Phone and Send OTP
+exports.sendUserLoginOtp = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { phone } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ phone });
     if (!user) {
       return res.status(404).json({ error: "User not found", type: "USER_NOT_FOUND" });
     }
     if (user.isDisabled) {
       return res.status(403).json({ error: "User is disabled", type: "USER_DISABLED" });
     }
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
+
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+    await user.save();
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone,
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
+exports.resendUserLoginOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({ error: "User not found", type: "USER_NOT_FOUND" });
+    }
+    if (user.isDisabled) {
+      return res.status(403).json({ error: "User is disabled", type: "USER_DISABLED" });
+    }
+
+    const otp = generateOTP();
+    const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
+
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+    await user.save();
+
+    // Send OTP via Twilio
+    await twilioClient.messages.create({
+      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone,
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
+
+// Verify OTP for Login
+exports.verifyUserLoginOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    const user = await User.findOne({ phone, otp, otpExpires: { $gt: new Date() } });
+    if (!user) return res.status(400).json({ error: "Invalid OTP" });
+
+    // Clear OTP after successful verification
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
 
     const payload = { userId: user._id };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
+
     res.json({
       token,
       user: {
         id: user._id,
+        name: user.name,
         email: user.email,
-        password: password,
+        phone: user.phone,
+        profile: user.profile,
+        location: user.location,
       },
     });
   } catch (error) {
@@ -381,7 +521,30 @@ exports.getCurrentUser = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find();
-    res.json(users);
+
+    const usersWithRideStats = await Promise.all(
+      users.map(async (user) => {
+        const rideRequests = await RideRequest.find({
+          user: user._id,
+          status: { $in: ["completed", "canceled"] },
+        });
+
+        const completedRides = rideRequests.filter(
+          (ride) => ride.status === "completed"
+        ).length;
+        const canceledRides = rideRequests.filter(
+          (ride) => ride.status === "canceled"
+        ).length;
+
+        return {
+          ...user.toObject(),
+          completedRides,
+          canceledRides,
+        };
+      })
+    );
+
+    res.json(usersWithRideStats);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -398,9 +561,6 @@ exports.updateUser = async (req, res) => {
         type: "Point",
         coordinates: [req.body.latitude, req.body.longitude],
       };
-    }
-    if (req.body.password) {
-      req.body.password = await bcrypt.hash(req.body.password, 10);
     }
     const user = await User.findByIdAndUpdate(req.params.id, req.body, {
       new: true,

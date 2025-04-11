@@ -7,7 +7,6 @@ const driverSchema = new mongoose.Schema(
     phone: { type: String, unique: true },
     otp: { type: String },
     otpExpires: { type: Date },
-    password: String,
     driverLicenseFront: String,
     driverLicenseBack: String,
     licenseCheckCode: { type: String, default: "" },

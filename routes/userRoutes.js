@@ -14,19 +14,23 @@ const {
   getAllUsers,
   updateUser,
   deleteUser,
-  loginUser,
+  sendUserLoginOtp,
   checkEmail,
   getUserLocation,
   updateUserLocation,
   resendOTP,
   verifyOTP,
   deleteUserByPhone,
-  updatePassword,
   sendOTPByEmail,
   resendOTPByEmail,
   verifyOTPByEmail,
   disableUser,
   enableUser,
+  createUserTempOtp,
+  verifyUserTempOtp,
+  resendUserTempOtp,
+  verifyUserLoginOtp,
+  resendUserLoginOtp
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 
@@ -39,7 +43,11 @@ module.exports = (io) => {
     createUser
   );
 
-  router.post("/update-password", updatePassword);
+
+  router.post("/temp-otp", createUserTempOtp);
+  router.post("/verify-temp-otp", verifyUserTempOtp);
+  router.post("/resend-temp-otp", resendUserTempOtp);
+
 
   router.post("/send-otp", sendOTPByEmail);
 
@@ -48,7 +56,9 @@ module.exports = (io) => {
   router.post("/verify-otp-email", verifyOTPByEmail);
 
 
-  router.post("/login", loginUser);
+  router.post("/send-user-login-otp", sendUserLoginOtp);
+  router.post("/verify-user-login-otp", verifyUserLoginOtp);
+  router.post("/resend-user-login-otp", resendUserLoginOtp);
 
   router.get("/byId/:id", getUser);
 

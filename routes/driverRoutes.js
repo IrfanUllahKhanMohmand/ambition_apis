@@ -22,17 +22,21 @@ const {
   getDriverLocation,
   getDriverStatus,
   checkEmail,
-  loginDriver,
   resendOTP,
   verifyOTP,
   deleteDriverByPhone,
   getDriversAdmin,
-  updateDriverPassword,
   sendOTPToDriverByEmail,
   resendOTPToDriverByEmail,
   verifyOTPForDriverByEmail,
   disableDriver,
   enableDriver,
+  createDriverTempOtp,
+  verifyDriverTempOtp,
+  resendDriverTempOtp,
+  sendDriverLoginOtp,
+  resendDriverLoginOtp,
+  verifyDriverLoginOtp
 } = require("../controllers/driverController");
 const auth = require("../middleware/auth");
 
@@ -59,12 +63,6 @@ module.exports = (io) => {
       [
         body("name", "Name is required").not().isEmpty(),
         body("email", "Please include a valid email").isEmail(),
-        body(
-          "password",
-          "Please enter a password with 6 or more characters"
-        ).isLength({
-          min: 6,
-        }),
         body("phone", "Phone number is required").not().isEmpty(),
 
         body("latitude", "Latitude is required").not().isEmpty(),
@@ -84,8 +82,6 @@ module.exports = (io) => {
     createDriver
   );
 
-  // update driver password
-  router.post("/update-password", updateDriverPassword);
 
   // send OTP to driver by email  
   router.post("/send-otp", sendOTPToDriverByEmail);
@@ -98,8 +94,13 @@ module.exports = (io) => {
 
   router.post("/verify-otp-email", verifyOTPForDriverByEmail);
 
-  // Driver login
-  router.post("/login", loginDriver);
+  router.post("/temp-otp", createDriverTempOtp);
+  router.post("/verify-temp-otp", verifyDriverTempOtp);
+  router.post("/resend-temp-otp", resendDriverTempOtp);
+
+  router.post("/send-driver-login-otp", sendDriverLoginOtp);
+  router.post("/resend-driver-login-otp", resendDriverLoginOtp);
+  router.post("/verify-driver-login-otp", verifyDriverLoginOtp);
 
   // Protected routes for Driver CRUD
   router.get("/", getDrivers);
