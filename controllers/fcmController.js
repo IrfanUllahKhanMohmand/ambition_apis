@@ -1,4 +1,4 @@
-const FcmToken = require('../models/fcmToken');
+const FcmToken = require('../models/FcmToken');
 const User = require('../models/User');
 const Driver = require('../models/Driver');
 const admin = require('firebase-admin');
