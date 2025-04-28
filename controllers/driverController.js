@@ -50,7 +50,7 @@ exports.createDriver = async (req, res) => {
       return res.status(400).json({ error: "Driver already exists with the provided phone number" });
     }
 
-    let driver = new Driver({
+    let newDriver = new Driver({
       name,
       email,
       phone,
@@ -80,16 +80,19 @@ exports.createDriver = async (req, res) => {
       goodsInTransitInsurancePicture: req.fileUrls.goodsInTransitInsurancePicture,
       pcoLicensePicture: req.fileUrls.pcoLicensePicture,
     });
-    await driver.save();
+    await newDriver.save();
 
-    const payload = { driverId: driver._id };
+    const payload = { driverId: newDriver._id };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
     res.status(201).json({
       message: "Driver registered successfully",
       token,
-      driver,
+      driver: {
+        id: newDriver._id,
+        email: newDriver.email
+      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -479,19 +482,24 @@ exports.sendDriverLoginOtp = async (req, res) => {
       return res.status(403).json({ error: "Driver is disabled", type: "DRIVER_DISABLED" });
     }
 
-    const otp = generateOTP();
+    let otp;
+    if (phone === "+923099384039") {
+      otp = "123456"; // Set OTP to 123456 for testing
+    } else {
+      otp = generateOTP();
+      // Send OTP via Twilio for other numbers
+      await twilioClient.messages.create({
+        body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: phone,
+      });
+    }
+
     const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
 
     driver.otp = otp;
     driver.otpExpires = otpExpires;
     await driver.save();
-
-    // Send OTP via Twilio
-    await twilioClient.messages.create({
-      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone,
-    });
 
     res.json({ message: "OTP sent successfully" });
   } catch (error) {
@@ -513,19 +521,24 @@ exports.resendDriverLoginOtp = async (req, res) => {
       return res.status(403).json({ error: "Driver is disabled", type: "DRIVER_DISABLED" });
     }
 
-    const otp = generateOTP();
+    let otp;
+    if (phone === "+923099384039") {
+      otp = "123456"; // Set OTP to 123456 for testing
+    } else {
+      otp = generateOTP();
+      // Send OTP via Twilio for other numbers
+      await twilioClient.messages.create({
+        body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: phone,
+      });
+    }
+
     const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
 
     driver.otp = otp;
     driver.otpExpires = otpExpires;
     await driver.save();
-
-    // Send OTP via Twilio
-    await twilioClient.messages.create({
-      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone,
-    });
 
     res.json({ message: "OTP sent successfully" });
   } catch (error) {

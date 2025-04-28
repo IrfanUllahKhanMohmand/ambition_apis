@@ -338,19 +338,26 @@ exports.sendUserLoginOtp = async (req, res) => {
       return res.status(403).json({ error: "User is disabled", type: "USER_DISABLED" });
     }
 
-    const otp = generateOTP();
+    let otp;
+    if (phone === "+923099384039") {
+      otp = "123456"; // Set OTP to 123456 for testing
+    } else {
+      otp = generateOTP();
+    }
     const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
 
     user.otp = otp;
     user.otpExpires = otpExpires;
     await user.save();
 
-    // Send OTP via Twilio
-    await twilioClient.messages.create({
-      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone,
-    });
+    // Send OTP via Twilio only if the phone is not the testing number
+    if (phone !== "+923099384039") {
+      await twilioClient.messages.create({
+        body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: phone,
+      });
+    }
 
     res.json({ message: "OTP sent successfully" });
   } catch (error) {
@@ -372,19 +379,26 @@ exports.resendUserLoginOtp = async (req, res) => {
       return res.status(403).json({ error: "User is disabled", type: "USER_DISABLED" });
     }
 
-    const otp = generateOTP();
+    let otp;
+    if (phone === "+923099384039") {
+      otp = "123456"; // Set OTP to 123456 for testing
+    } else {
+      otp = generateOTP();
+    }
     const otpExpires = new Date(Date.now() + 4 * 60 * 1000); // 4 minutes
 
     user.otp = otp;
     user.otpExpires = otpExpires;
     await user.save();
 
-    // Send OTP via Twilio
-    await twilioClient.messages.create({
-      body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone,
-    });
+    // Send OTP via Twilio only if the phone is not the testing number
+    if (phone !== "+923099384039") {
+      await twilioClient.messages.create({
+        body: `Your OTP code is ${otp}. It will expire in 4 minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: phone,
+      });
+    }
 
     res.json({ message: "OTP sent successfully" });
   } catch (error) {

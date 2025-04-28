@@ -19,11 +19,12 @@ const stripeRoutes = require("./routes/stripeRoutes");
 
 const adminRoutes = require("./routes/adminRoutes");
 const instructionRoutes = require("./routes/instructionRoutes");
+const fcmRoutes = require('./routes/fcmRoutes');
 
 
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -74,6 +75,7 @@ app.use("/api/admins", adminRoutes);
 app.use("/api/repeat-jobs", repeatJobRoutes);
 app.use("/api/stripe", stripeRoutes);
 app.use("/api/instructions", instructionRoutes);
+app.use('/api/fcm', fcmRoutes);
 
 app.get("/api/sendSocketEvent", (req, res) => {
   io.emit("event", { message: "Hello from server!" });
