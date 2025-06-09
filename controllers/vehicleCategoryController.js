@@ -317,14 +317,21 @@ exports.getVehicleCategoriesByItems = async (req, res) => {
 
 
           // Calculate event fare
-          const timeFareRange = plainVehicle.timeFare.find(
+          let timeFareRange = plainVehicle.timeFare.find(
             fare => estimatedTime >= fare.startMinutes && estimatedTime < fare.endMinutes
           );
+
+          // If not found, pick the range with the highest endMinutes (upper limit)
+          if (!timeFareRange && Array.isArray(plainVehicle.timeFare) && plainVehicle.timeFare.length > 0) {
+            timeFareRange = plainVehicle.timeFare.reduce((max, curr) =>
+              (curr.endMinutes > (max?.endMinutes ?? -Infinity)) ? curr : max
+            );
+          }
 
           if (timeFareRange) {
             plainVehicle.timeFare = getRandomFare(timeFareRange.minPrice, timeFareRange.maxPrice);
           } else {
-            return res.status(400).json({ error: "Invalid time range." });
+            throw new Error("Invalid time range.");
           }
           //round it to 2 decimal places
           plainVehicle.itemBasedPricing = parseFloat((itemBasedPricing).toFixed(2));
